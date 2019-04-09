@@ -78,44 +78,10 @@ def compute_energy(data_cost,lambda_value,distance,gamma_value,H,disparity, pote
     print("Energy MAD", energyMAD)
     print("energyPotential",energyPotential)
     print("Energy Data Cost", energyDataCost)
-                    
-    # energy = np.sum(data_cost[:,:,disparity[:,:]])
 
-    # print(energy)
-    # left_energy = np.sum(potentialLeft)
-    
-    # right_energy = np.sum(np.where(disparity[1:shape[0]-1,1:shape[1]-1] != disparity[1:shape[0]-1,2:shape[1]],1,0))
-    
-    # up_energy = np.sum(np.where(disparity[1:shape[0]-2,1:shape[1]-1] != disparity[1:shape[0]-1,1:shape[1]-1],1,0))
-    
-    # down_energy = np.sum(np.where(disparity[2:shape[0],1:shape[1]-1] != disparity[1:shape[0]-1,1:shape[1]-1],1,0))
-    
-    # energy += lambda_value*(left_energy + up_energy + right_energy + down_energy)
-    
     
     return energy
     
-    
-# def compute_data_cost(img_left, img_right, num_disp_vals, tau) : 
-#     print("compute_data_cost")
-#     shape = np.shape(img_left)
-#     data_cost = np.zeros((shape[0],shape[1],num_disp_vals))
-#     tau_comp = (np.ones((shape[0],shape[1],num_disp_vals),dtype = int)*int(tau))
-    
-#     for i in range(num_disp_vals) :
-#         if i!=0 :
-#             x = np.abs(img_left[:,i:]-img_right[:,:-i])
-#             y = tau_comp[:,i:,i]
-#             data_cost[:,i:,i] = np.where(x<y,x,y)
-#             # data_cost[:,i:,i] = np.min(np.abs(img_left[:,i:]-img_right[:,:-i]),tau_comp[:,:,i])
-#         else :
-#             # data_cost[:,:,0] = np.min(np.abs(img_left[:,:]-img_right[:,:]),tau_comp[:,:,0])
-#             x = np.abs(img_left[:,:]-img_right[:,:])
-#             y = tau_comp[:,:,0]
-#             data_cost[:,:,0] = np.where(x<y,x,y)
-#     return data_cost
-    
-
 
 def compute_MAP_labeling(beliefs) :
     print("MAP")
@@ -176,12 +142,6 @@ def update_messages(msg_up_prev, msg_down_prev, msg_left_prev, msg_right_prev, d
     aux_left[1:-1,1:-1,:] = copy.deepcopy(msg_up_prev[0:-2,1:-1,:]+msg_down_prev[2:,1:-1,:]+msg_left_prev[1:-1,0:-2,:]+data_cost[1:-1,1:-1,:])
     aux_right[1:-1,1:-1,:] = copy.deepcopy(msg_up_prev[0:-2,1:-1,:]+msg_down_prev[2:,1:-1,:]+msg_right_prev[1:-1,2:,:]+data_cost[1:-1,1:-1,:])
     
-    # min_up = (aux_up+lambda_value).min(axis = 2)
-    # min_down = (aux_down+lambda_value).min(axis = 2)
-    # min_right =(aux_right+lambda_value).min(axis = 2)
-    # min_left = (aux_left+lambda_value).min(axis = 2)
-    # print(np.shape(aux_down))
-    # print(np.histogram(aux_up[:,:,1]))
 
     # print(np.shape(aux_up),np.shape(potentialUp[0]).reshape(width,height,nbValue),np.shape(msg_up))
     # print(np.shape(np.transpose(np.transpose(potentialDown[0]),(1,0,2))),np.shape(aux_up))
@@ -225,89 +185,31 @@ def update_messages(msg_up_prev, msg_down_prev, msg_left_prev, msg_right_prev, d
 
 def calculatePotentialCost(images):
     potentialTotal = []
-    # potentialUpTotal = []
-    # potentialLeftTotal = []
-    # potentialRightTotal = []
-
-
-
     potential = np.zeros(np.shape(images)[:-1])
-    # potentialDown = np.zeros(np.shape(images)[:-1])
-    # potentialLeft =  np.zeros(np.shape(images)[:-1])
-    # potentialRight =  np.zeros(np.shape(images)[:-1])
 
     for i in tqdm.tqdm(range(np.shape(images)[0])):
-        # print(np.shape(images[:,1:-1,1:-1:,:]),np.shape(images[i,0:-2,1:-1,:]))
-        # test = np.subtract(images[:,1:-1,1:-1:,:],images[i,0:-2,1:-1,:])
-        # print(np.shape(test))
-        # a = np.linalg.norm(test,axis=3)
-        # print(np.shape(a))
-        # aux = np.linalg.norm(np.subtract(images[:,1:-1,1:-1:,:],images[i,0:-2,1:-1,:]),axis=3)
-        # print(np.shape(aux),np.shape(potentialUp))
-        # potentialUp[:,1:-1,1:-1] = aux
-
-      
-        # potentialUp[:,1:-1,1:-1] = np.linalg.norm(np.subtract(images[:,1:-1,1:-1:,:],images[i,1:-1,1:-1,:]),axis=3)
-        # potentialDown[:,1:-1,1:-1] = np.linalg.norm(np.subtract(images[:,1:-1,1:-1:,:],images[i,:-2,1:-1,:]),axis=3)
-        # potentialLeft[:,1:-1,1:-1] = np.linalg.norm(np.subtract(images[:,1:-1:,1:-1,:],images[i,1:-1,:-2,:]),axis=3)
-        # potentialRight[:,1:-1,1:-1] = np.linalg.norm(np.subtract(images[:,1:-1:,1:-1,:],images[i,1:-1,2:,:]),axis=3)
-
-        # potentialDownTotal.append(copy.deepcopy(potentialDown))
-        # potentialUpTotal.append(copy.deepcopy(potentialUp))
-        # potentialLeftTotal.append(copy.deepcopy(potentialLeft))
-        # potentialRightTotal.append(copy.deepcopy(potentialRight))
-
-
         potential[:,:,:] = np.linalg.norm(np.subtract(images[:,:,:,:],images[i,:,:,:]),axis=3)
-        # potentialDown[:,:,:] = np.linalg.norm(np.subtract(images[:,:,:,:],images[i,:,:,:]),axis=3)
-        # potentialLeft[:,:,:] = np.linalg.norm(np.subtract(images[:,:,:,:],images[i,:,:,:]),axis=3)
-        # potentialRight[:,:,:] = np.linalg.norm(np.subtract(images[:,:,:,:],images[i,:,:,:]),axis=3)
-
         potentialTotal.append(copy.deepcopy(potential))
-        # potentialUpTotal.append(copy.deepcopy(potentialUp))
-        # potentialLeftTotal.append(copy.deepcopy(potentialLeft))
-        # potentialRightTotal.append(copy.deepcopy(potentialRight))
+
 
 
         
 
-        
-    # print(np.where(potentialRightTotal[0][0,:,:]!=0))
-    # print(potentialRightTotal[0][0][np.where(potentialRightTotal[0][0,:,:]!=0)])
-    # print(np.where(potentialRightTotal[1][0,:,:]!=0,potentialRightTotal[1][0,:,:]))
     return np.array(potentialTotal)
-# For convenience do not compute the messages that are sent from pixels that are on the boundaries of the image. 
-# Compute the messages only for the pixels with coordinates (y,x) = ( 2:(height-1) , 2:(width-1) )
-## CONCATENATION :
+
 
 def stereo_belief_propagation(images,distance, H,lambda_value, gamma_value,outputPath):
     num_disp_values = np.shape(images)[0] #number of disparity values
-    # images = images.reshape(np.shape(images)[1],np.shape(images)[2],np.shape(images)[3],num_disp_values)
     tau             = 15 
     num_iterations  = 100 #number of iterations
     height, width = np.shape(images[0])[0],np.shape(images[0])[1]
     
 
-
-    #compute the data cost term
-    #data_cost: a 3D array of size height x width x num_disp_value; each
-    #  element data_cost(y,x,l) is the cost of assigning the label l to pixel 
-    #  p = (y,x)
-
     data_cost = np.zeros((np.shape(distance)[1],np.shape(distance)[2],np.shape(distance)[0]))
     for i in range(len(distance)):
         data_cost[:,:,i] = float(lambda_value) * distance[i,:,:] + gamma_value * H[i,:,:]
 
-    # print(np.shape(data_cost))
-    # print(np.histogram(distance[np.where(distance<100)]))
-    # print(np.histogram(data_cost[np.where(data_cost<100)]))
 
-    # for i in range(15):
-        # print(data_cost[250,500,i])
-    # data_cost = float(lambda_value) * distance 
-
-
-    # potential_cost_up,potential_cost_down,potential_cost_right,potential_cost_left = calculatePotentialCost(images)
     potentialTotal = calculatePotentialCost(images)
     print(np.shape(potentialTotal))
     #allocate memory for storing the energy at each iteration
@@ -403,33 +305,6 @@ def normalize(distance):
 
 
 def calculateMap(images):
-    # M = np.zeros(np.shape(averageImage))
-
-    # for i in tqdm.tqdm(range(len(averageImage))):
-    #     for j in range(len(averageImage[i])):
-    #         for k in range(len(averageImage[i][j])):
-    #             nbImage = 0
-    #             for imageindex in range(len(images)): # Inverser les deux for pour etre au point
-    #                 if images[imageindex][i,j,k] != None :
-    #                     nbImage+=1
-    #                     M[i,j,k]+=(images[imageindex][i,j,k]-averageImage[i,j,k])**2
-    #             if nbImage !=0 :
-    #                 M[i,j,k] = M[i,j,k]/nbImage
-    #             else :
-    #                 M[i,j,k] = 0
-
-
-    # sigma = np.linalg.norm(M,axis = 2)
-
-    # MAD = np.subtract(images,M)
-    # H = np.zeros((np.shape(images)[0],np.shape(images)[1],np.shape(images)[2]))
-    # for i in tqdm.tqdm(range(len(images))) :
-    #     for j in range(len(images[i])):
-    #         for k in range(len(images[i][j])):
-    #             if sigma[j,k]<10 :
-    #                 H[i,j,k] = np.linalg.norm(MAD[i,j,k])
-
-
     medianImage = np.zeros(np.shape(images[0]))
     for i in tqdm.tqdm(range(len(medianImage))):
         for j in range(len(medianImage[i])):
@@ -447,12 +322,6 @@ def calculateMap(images):
     print(MAD[np.where(MAD>3)])
     H = np.where(MAD<10,np.linalg.norm(possibleResult),0)
     print(H[np.where(H>0)])
-    return H
-    
-            
-            
-
-
     return H
 
 
@@ -544,14 +413,7 @@ if __name__ == "__main__":
     print(disparity_est)
     print(np.histogram(disparity_est))
     print(np.shape(disparity_est))
-    # figure(3); clf(3);
-    # imagesc(disparity_est); colormap(gray)
-    # title('Disparity Image');
-    # cv2.imshow("FINAL",disparity_est)
-    # cv2.imshow("Ground TRUTH",disparity)
-    # figure(4); clf(4);
-    # plot(1:length(energy),energy)
-    # title('Energy per iteration')
+
     import matplotlib.pyplot as plt
 
     plt.plot(energy)
