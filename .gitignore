@@ -1,0 +1,22 @@
+.DS_Store
+.vscode/
+CameraCalibration/
+DESKCOLMAPcopy/
+DESKFAR/
+FrameFromVideo1/
+FrameFromVideo2/
+FrameFromVideo3/
+FrameFromVideoNotBlur/
+TRIVA TP4/
+VIDEO/
+distance.txt
+graphTool/
+output2/
+output3 copy/
+output3/
+outputFar/
+outputVideo/
+outputVideo1/
+outputVideoBlur/
+pickleAux/
+test.obj
