@@ -80,7 +80,7 @@ def calculateMap(images):
 
 def reconstructionImage(images,disparity):
     new_image = np.zeros(np.shape(images[0]))
-    print(np.shape(images))
+    # print(np.shape(images))
     for i in range(len(new_image)):
         for j in range(len(new_image[i])):
             for k in range(len(new_image[i,j])):
@@ -270,9 +270,9 @@ def putEdgeWeightFast(basicGraph,dic,dataCost,potential,disparity,labelNumber,ma
     
     pot= createCurrentPotent(potential,disparity,labelNumber)
     currentDist = createCurrentDist(dataCost,disparity)
-    print(np.shape(currentDist))
-    print(np.shape(pot))
-    print(np.shape(dic["source"]))
+    # print(np.shape(currentDist))
+    # print(np.shape(pot))
+    # print(np.shape(dic["source"]))
 
     aux = []
 
@@ -283,7 +283,7 @@ def putEdgeWeightFast(basicGraph,dic,dataCost,potential,disparity,labelNumber,ma
     aux.extend(np.transpose(pot[:,1:]+pot[:,:-1]).flatten())
     aux.extend(np.transpose(pot[:,1:]+pot[:,:-1]).flatten())
     aux = np.array(aux)
-    print(np.shape(aux))
+    
     basicGraph.edge_properties["w"].set_2d_array(aux)
     # basicGraph.edge_properties["w"].set_2d_array((currentDist[:,:]).flatten(),pos = dic["source"])
     # basicGraph.edge_properties["w"].set_2d_array((dataCost[labelNumber,:,:]).flatten(),pos = dic["puit"])
@@ -311,14 +311,20 @@ def graphCut(images,distance,H,potential,lambda_value,gamma_value,disparityBegin
     source = basicGraph.vertex(0)
     puit = basicGraph.vertex(nbVertices-1)
 
-
+    print(np.shape(distance))
 
     noChange = False
     count = 0
 
-    while (not noChange) or count<maxIter :
+    while (not noChange) and count<maxIter :
         noChange = True 
         for labelNumber in range(len(images)):
+            print("Label Number {} and count {} and maxIter {}".format(labelNumber,count,maxIter))
+            # if np.all(distance[:,:,labelNumber]>100) :
+            # print(len(np.where(distance[:,:,labelNumber]>10)[0]),np.shape(distance)[1]*np.shape(distance)[2]*0.8)
+            if len(np.where(distance[labelNumber,:,:]>10)[0])>np.shape(distance)[1]*np.shape(distance)[2]*0.8:
+
+                continue
             # putEdgeWeight(basicGraph,distance,potential,disparity,labelNumber,maxCols,maxLines)
             putEdgeWeightFast(basicGraph,dic,distance,potential,disparity,labelNumber,maxCols,maxLines)
             print("weight put")
@@ -328,12 +334,12 @@ def graphCut(images,distance,H,potential,lambda_value,gamma_value,disparityBegin
             print("OK")
             partition = result.get_array()
             # print(np.all(partition.get_array()))
+            print("partition",len(np.where(partition==False)[0]))
+            print(np.shape(partition))
             if not np.all(partition) :
                 noChange = False
                 indices = np.where(partition==False)
-            
                 for index in indices[0] :
-
                     x,y = getCoords(index,maxCols,maxLines)
                     disparity[x,y] = labelNumber
         count+=1
@@ -372,6 +378,7 @@ if __name__ == "__main__":
     with open(os.path.join(inputPath,"pickleAux/distance.pck"),"rb") as f :
         distance = pickle.load(f)
 
+
     print("Normalize distance")  
     distance = np.array(normalize(distance))
 
@@ -400,12 +407,14 @@ if __name__ == "__main__":
             print("We're at i,j:{},{}".format(i,j))
             disparityReduced = disparity[2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
             imagesReduced = images[:,2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
-            distanceReduced = distance[2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
-            HReduced = H[2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
+            distanceReduced = distance[:,2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
+            HReduced = H[:,2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
             potentialReduced = potential[:,:,2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
-            disparity_est, energy = graphCut(imagesReduced,distanceReduced,HReduced,potentialReduced,lambda_value,gamma_value,disparityReduced,inputPath)
-            print("The energy is {}".format(energy))
-            disparity[2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]= disparity_est
+            disparity_est = graphCut(imagesReduced,distanceReduced,HReduced,potentialReduced,lambda_value,gamma_value,disparityReduced)
+            disparity[2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1] = disparity_est
+            print(disparity)
+            newImage = reconstructionImage(images,disparity)
+            cv2.imwrite(os.path.join(inputPath,"output/MRFCOST{}{}.jpeg".format(i,j)),newImage)
 
 
 
