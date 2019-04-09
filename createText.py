@@ -78,146 +78,13 @@ def calculateMap(images):
 
 
 
-def reconstructionImage(images,disparity):
-    new_image = np.zeros(np.shape(images[0]))
-    print(np.shape(images))
-    for i in range(len(new_image)):
-        for j in range(len(new_image[i])):
-            for k in range(len(new_image[i,j])):
-                new_image[i,j,k] = images[disparity[i,j],i,j,k]
 
-    return new_image
-            
 
     
 
-def calculateAverageImage(images):
-    new_image = np.zeros(np.shape(images[0]))
-    for i in tqdm.tqdm(range(len(new_image))):
-        for j in range(len(new_image[i])):
-            # for k in range(len(new_image[i,j])):
-            nbImage = 0
-            average = np.zeros(3)
-            for k in range(len(images)):
-                if not np.all(images[k,i,j,:] == 0):
-                    average+=images[k,i,j,:] 
-                    nbImage+=1
-                    
-                
-            if nbImage>0 :
-                average=average/float(nbImage)
-                # print(average)
-            # for k in range(3):
 
 
 
-            new_image[i,j] = average
-    return new_image
-
-def createGraph(images):
-    maxCols = np.shape(images)[1]
-    maxLines = np.shape(images)[2]
-    nbVertices = maxCols*maxLines+2
-
-    basicGraph = graph_tool.Graph()
-    basicGraph.add_vertex(nbVertices)
-
-    source = basicGraph.vertex(0)
-    puit = basicGraph.vertex(nbVertices-1)
-
-
-
-    for vertexIndex in tqdm.tqdm(range(1,nbVertices-1)):
-        currentVertex = basicGraph.vertex(vertexIndex)
-
-
-        # Source
-        basicGraph.add_edge(source,currentVertex)
-        # Puit 
-        basicGraph.add_edge(currentVertex,puit)
-
-        if (vertexIndex-1)%maxCols != maxCols - 1 :
-            basicGraph.add_edge(currentVertex,basicGraph.vertex(vertexIndex+1))
-
-        if (vertexIndex-1)%maxCols !=0 :
-            basicGraph.add_edge(currentVertex,basicGraph.vertex(vertexIndex-1))
-
-        if (vertexIndex-1)/maxCols != maxLines-1 :
-            basicGraph.add_edge(currentVertex,basicGraph.vertex(vertexIndex+maxCols))
-        
-        if (vertexIndex-1)/maxCols != 0 :
-            basicGraph.add_edge(currentVertex,basicGraph.vertex(vertexIndex-maxCols))
-    
-    propertyGraph = basicGraph.new_edge_property("float")
-    basicGraph.edge_properties["w"] = propertyGraph
-    return basicGraph
-
-def createGraphFast(images):
-    maxCols = np.shape(images)[1]
-    maxLines = np.shape(images)[2]
-    nbVertices = maxCols*maxLines+2
-
-    basicGraph = graph_tool.Graph()
-    basicGraph.add_vertex(nbVertices)
-
-    source = basicGraph.vertex(0)
-    puit = basicGraph.vertex(nbVertices-1)
-    index =0
-    dic = {"source":[],"puit":[],"right":[],"left":[],"down":[],"up":[]}
-    for vertexIndex in tqdm.tqdm(range(1,nbVertices-1)):
-        currentVertex = basicGraph.vertex(vertexIndex)
-        # Source
-        basicGraph.add_edge(source,currentVertex)
-        dic["source"].append(index)
-        index+=1
-
-    for vertexIndex in tqdm.tqdm(range(1,nbVertices-1)):
-        currentVertex = basicGraph.vertex(vertexIndex)
-        # Puit 
-        basicGraph.add_edge(currentVertex,puit)
-        dic["puit"].append(index)
-        index+=1
-
-
-
-    for vertexIndex in tqdm.tqdm(range(1,nbVertices-1)):
-        currentVertex = basicGraph.vertex(vertexIndex)
-        if (vertexIndex-1)%maxCols != maxCols - 1 :
-            basicGraph.add_edge(currentVertex,basicGraph.vertex(vertexIndex+1))
-            dic["right"].append(index)
-            index+=1
-    for vertexIndex in tqdm.tqdm(range(1,nbVertices-1)):
-        currentVertex = basicGraph.vertex(vertexIndex)
-        if (vertexIndex-1)%maxCols !=0 :
-            basicGraph.add_edge(currentVertex,basicGraph.vertex(vertexIndex-1))
-            dic["left"].append(index)
-            index+=1
-    for vertexIndex in tqdm.tqdm(range(1,nbVertices-1)):
-        currentVertex = basicGraph.vertex(vertexIndex)
-        if (vertexIndex-1)/maxCols != maxLines-1 :
-            basicGraph.add_edge(currentVertex,basicGraph.vertex(vertexIndex+maxCols))
-            dic["down"].append(index)
-            index+=1
-    for vertexIndex in tqdm.tqdm(range(1,nbVertices-1)):
-        currentVertex = basicGraph.vertex(vertexIndex)
-        if (vertexIndex-1)/maxCols != 0 :
-            basicGraph.add_edge(currentVertex,basicGraph.vertex(vertexIndex-maxCols))
-            dic["up"].append(index)
-            index+=1
-    
-    propertyGraph = basicGraph.new_edge_property("float")
-    basicGraph.edge_properties["w"] = propertyGraph
-    return basicGraph,dic
-
-    #### UTILISER set_2d_array(a, pos=None)
-
-def getCoords(vertexNumber,maxCols,maxLines):
-
-    y = (vertexNumber-1)/maxCols 
-    x = (vertexNumber-1)%maxCols 
-
-    return int(x),int(y)
-    
 
 def putEdgeWeight(basicGraph,distance,potential,disparity,labelNumber,maxCols,maxLines):
     nbVertices = maxCols*maxLines+2 
@@ -264,79 +131,7 @@ def createCurrentDist(dataCost,disp):
             currentDataCost[i,j] = dataCost[disp[i,j],i,j]
     return currentDataCost
 
-def putEdgeWeightFast(basicGraph,dic,dataCost,potential,disparity,labelNumber,maxCols,maxLines):
-    nbVertices = maxCols*maxLines+2
-    
-    pot= createCurrentPotent(potential,disparity,labelNumber)
-    currentDist = createCurrentDist(dataCost,disparity)
-    print(np.shape(currentDist))
-    print(np.shape(pot))
-    print(np.shape(dic["source"]))
 
-    aux = []
-
-    aux.extend((currentDist[:,:]).flatten())
-    aux.extend((dataCost[labelNumber,:,:]).flatten())
-    aux.extend(np.transpose(pot[1:,:]+pot[-1:,:]).flatten())
-    aux.extend(np.transpose(pot[1:,:]+pot[-1:,:]).flatten())
-    aux.extend(np.transpose(pot[:,1:]+pot[:,:-1]).flatten())
-    aux.extend(np.transpose(pot[:,1:]+pot[:,:-1]).flatten())
-    aux = np.array(aux)
-    print(np.shape(aux))
-    basicGraph.edge_properties["w"].set_2d_array(aux)
-    # basicGraph.edge_properties["w"].set_2d_array((currentDist[:,:]).flatten(),pos = dic["source"])
-    # basicGraph.edge_properties["w"].set_2d_array((dataCost[labelNumber,:,:]).flatten(),pos = dic["puit"])
-
-    # basicGraph.edge_properties["w"].set_2d_array(np.transpose(pot[1:,:]+pot[-1:,:]).flatten(),pos = dic["right"])
-    # basicGraph.edge_properties["w"].set_2d_array(np.transpose(pot[1:,:]+pot[-1:,:]).flatten(),pos = dic["left"])
-    # basicGraph.edge_properties["w"].set_2d_array(np.transpose(pot[:,1:]+pot[:,:-1]).flatten(),pos = dic["up"])
-    # basicGraph.edge_properties["w"].set_2d_array(np.transpose(pot[:,:-1]+pot[:,1:]).flatten(),pos = dic["down"])
-
-
-
-
-def graphCut(images,distance,H,lambda_value,gamma_value,maxIter = 10):
-    maxCols = np.shape(images)[1]
-    maxLines = np.shape(images)[2]
-    nbVertices = maxCols*maxLines+2
-
-
-    # Calculate potential :
-    potential = calculatePotentialCost(images)
-    disparity = np.random.randint(0,len(images),(np.shape(images)[1],np.shape(images)[2]))
-
-    # Create graph :
-    # basicGraph = createGraph(images)
-    basicGraph,dic = createGraphFast(images)
-    source = basicGraph.vertex(0)
-    puit = basicGraph.vertex(nbVertices-1)
-
-
-
-    noChange = False
-    count = 0
-
-    while (not noChange) or count<maxIter :
-        noChange = True 
-        for labelNumber in range(len(images)):
-            # putEdgeWeight(basicGraph,distance,potential,disparity,labelNumber,maxCols,maxLines)
-            putEdgeWeightFast(basicGraph,dic,distance,potential,disparity,labelNumber,maxCols,maxLines)
-            print("weight put")
-            residual = graph_tool.flow.boykov_kolmogorov_max_flow(basicGraph, source, puit, basicGraph.edge_properties["w"])
-            print("residual found")
-            partition = graph_tool.flow.min_st_cut(basicGraph, source, basicGraph.edge_properties["w"],residual)
-            print("OK")
-            print(np.all(partition))
-            if not np.all(partition) :
-                noChange = False
-                indices = np.where(partition==False)
-                for index in indices :
-                    x,y = getCoords(index)
-                    disparity[x,y] = labelNumber
-        count+=1
-    
-
-    return disparity
 
 
 
@@ -377,8 +172,21 @@ if __name__ == "__main__":
     gamma_value = 0
     print "Begin minimisation"
 
-    disparity_est, energy = graphCut(images,distance,H,lambda_value,gamma_value,inputPath)
 
+    maxCols = np.shape(images)[1]
+    maxLines = np.shape(images)[2]
+    nbVertices = maxCols*maxLines+2
+
+
+    # Calculate potential :
+    potential = calculatePotentialCost(images)
+    disparity = np.random.randint(0,len(images),(np.shape(images)[1],np.shape(images)[2]))
+
+    # Create graph :
+    # basicGraph = createGraph(images)
+    basicGraph,dic = createGraphFast(images)
+    source = basicGraph.vertex(0)
+    puit = basicGraph.vertex(nbVertices-1)
 
 
 

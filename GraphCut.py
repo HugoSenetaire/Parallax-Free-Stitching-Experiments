@@ -216,7 +216,7 @@ def getCoords(vertexNumber,maxCols,maxLines):
     y = (vertexNumber-1)/maxCols 
     x = (vertexNumber-1)%maxCols 
 
-    return int(x),int(y)
+    return int(x),int(y)-1
     
 
 def putEdgeWeight(basicGraph,distance,potential,disparity,labelNumber,maxCols,maxLines):
@@ -259,6 +259,7 @@ def createCurrentPotent(potential,disparity,labelNumber):
 
 def createCurrentDist(dataCost,disp):
     currentDataCost = np.zeros((np.shape(disp)[0],np.shape(disp)[1]))
+    print(np.shape(disp))
     for i in range(len(currentDataCost)):
         for j in range(len(currentDataCost[0])):
             currentDataCost[i,j] = dataCost[disp[i,j],i,j]
@@ -295,15 +296,14 @@ def putEdgeWeightFast(basicGraph,dic,dataCost,potential,disparity,labelNumber,ma
 
 
 
-def graphCut(images,distance,H,lambda_value,gamma_value,maxIter = 10):
+def graphCut(images,distance,H,potential,lambda_value,gamma_value,disparityBegin,maxIter = 10):
     maxCols = np.shape(images)[1]
     maxLines = np.shape(images)[2]
     nbVertices = maxCols*maxLines+2
 
-
+    disparity = copy.deepcopy(disparityBegin)
     # Calculate potential :
-    potential = calculatePotentialCost(images)
-    disparity = np.random.randint(0,len(images),(np.shape(images)[1],np.shape(images)[2]))
+
 
     # Create graph :
     # basicGraph = createGraph(images)
@@ -324,14 +324,17 @@ def graphCut(images,distance,H,lambda_value,gamma_value,maxIter = 10):
             print("weight put")
             residual = graph_tool.flow.boykov_kolmogorov_max_flow(basicGraph, source, puit, basicGraph.edge_properties["w"])
             print("residual found")
-            partition = graph_tool.flow.min_st_cut(basicGraph, source, basicGraph.edge_properties["w"],residual)
+            result = graph_tool.flow.min_st_cut(basicGraph, source, basicGraph.edge_properties["w"],residual)
             print("OK")
-            print(np.all(partition))
+            partition = result.get_array()
+            # print(np.all(partition.get_array()))
             if not np.all(partition) :
                 noChange = False
                 indices = np.where(partition==False)
-                for index in indices :
-                    x,y = getCoords(index)
+            
+                for index in indices[0] :
+
+                    x,y = getCoords(index,maxCols,maxLines)
                     disparity[x,y] = labelNumber
         count+=1
     
@@ -361,8 +364,8 @@ if __name__ == "__main__":
 
     
     print "Calculate cost H"
-    H = calculateMap(images)
-    averageImage = []
+    # H = calculateMap(images)
+    # averageImage = []
     H = np.zeros((np.shape(images)[0],np.shape(images)[1],np.shape(images)[2]))
 
     print "Calculate cost distance"
@@ -377,9 +380,32 @@ if __name__ == "__main__":
     gamma_value = 0
     print "Begin minimisation"
 
-    disparity_est, energy = graphCut(images,distance,H,lambda_value,gamma_value,inputPath)
+
+    potential = calculatePotentialCost(images)
+    disparity = np.random.randint(0,len(images),(np.shape(images)[1],np.shape(images)[2]))
 
 
+    height = np.shape(images)[1]
+    width = np.shape(images)[2]
+    numberOfSeparation = 10
+    reducedHeight = height/(2*numberOfSeparation+1)
+    reducedWidth = width/(2*numberOfSeparation+1)
+
+    
+    # image = 
+    imageShape = np.shape(images[0])
+    height = imageShape[0]/(2*numberOfSeparation+1)
+    for i in range(numberOfSeparation) :
+        for j in range(numberOfSeparation):
+            print("We're at i,j:{},{}".format(i,j))
+            disparityReduced = disparity[2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
+            imagesReduced = images[:,2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
+            distanceReduced = distance[2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
+            HReduced = H[2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
+            potentialReduced = potential[:,:,2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
+            disparity_est, energy = graphCut(imagesReduced,distanceReduced,HReduced,potentialReduced,lambda_value,gamma_value,disparityReduced,inputPath)
+            print("The energy is {}".format(energy))
+            disparity[2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]= disparity_est
 
 
 
