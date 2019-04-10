@@ -46,7 +46,7 @@ def normalize(distance):
             else :
                 for k in range(len(distance)):
                     if isinf(distance[k][i][j]) or distance[k][i][j]> 1000:
-                        distance[k][i][j] = 1000
+                        distance[k][i][j] = 100000
 
                 
     return distance
