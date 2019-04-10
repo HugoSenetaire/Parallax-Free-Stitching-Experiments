@@ -437,7 +437,7 @@ def reconstructionSurfaceFast(surfacePoint,features,camera,inputDir = "DESKCOLMA
     cameraFocal = camera[:,4]
     print(len(cameraFocal))
     print("nb CAM:",len(cameraFocal))
-    cameraPrincipalPointXrot  = camera[:,5]
+    cameraPrincipalPointX  = camera[:,5]
     cameraPrincipalPointY = camera[:,6]
     cameraSkew = camera[:,7]
     for imageFeature in tqdm.tqdm(features) :
