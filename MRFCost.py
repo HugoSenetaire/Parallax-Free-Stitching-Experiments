@@ -15,15 +15,15 @@ def compute_belief(data_cost, msg_up, msg_down, msg_left, msg_right):
     new_cost = copy.deepcopy(data_cost)
     
     
-    new_cost[:-1,:,:] += msg_up[1:,:,:]
+    new_cost[:-2,:,:] += msg_up[1:-1,:,:]
     
-    new_cost[1:,:,:] += msg_down[:-1,:,:]   
+    new_cost[2:,:,:] += msg_down[1:-1,:,:]   
         
-    new_cost[:,:-1,:] += msg_left[:,1:,:]   
+    new_cost[:,:-2,:] += msg_left[:,1:-1,:]   
     
-    new_cost[:,1:,:] += msg_right[:,:-1,:]
+    new_cost[:,2:,:] += msg_right[:,1:-1,:]
     
-    belief = new_cost
+    belief = copy.deepcopy(new_cost)
 
     # print(belief)
     
@@ -37,7 +37,7 @@ def compute_energy(data_cost,lambda_value,distance,gamma_value,H,disparity, pote
     energyMAD = 0
     energyPotential = 0
     energyDataCost = 0
-    for i in range(1,len(data_cost)-1):
+    for i in tqdm.tqdm(range(1,len(data_cost)-1)):
         for j in range(1,len(data_cost[i])-1):
             if isinf(data_cost[i,j,disparity[i,j]]):
 
@@ -72,7 +72,7 @@ def compute_energy(data_cost,lambda_value,distance,gamma_value,H,disparity, pote
             energyMAD+=aux3
             energyPotential+=aux2
             energyDataCost+=aux4
-
+    
 
     print("Energy Distance", energyDistance)
     print("Energy MAD", energyMAD)
@@ -93,27 +93,33 @@ def normalize_messages(msg_up, msg_down, msg_left, msg_right):
     print("normalize")
     shape = np.shape(msg_up)
     mean_msg_val = msg_up.mean(axis=2)
-    for i in range(np.shape(msg_up)[2]):
-        msg_up[0:shape[0],0:shape[1],i] =  msg_up[0:shape[0],0:shape[1],i] - mean_msg_val[0:shape[0],0:shape[1]]
+    print(np.shape(msg_up),np.shape(np.transpose(msg_up,(2,0,1))))
+    msg_up = np.transpose(np.subtract(np.transpose(msg_up,(2,0,1)),mean_msg_val),(1,2,0))
+    # for i in range(np.shape(msg_up)[2]):
+        # msg_up[0:shape[0],0:shape[1],i] =  msg_up[0:shape[0],0:shape[1],i] - mean_msg_val[0:shape[0],0:shape[1]]
+        # msg_up[0:shape[0],0:shape[1],i] =  msg_up[0:shape[0],0:shape[1],i] /mean_msg_val[0:shape[0],0:shape[1]]
     
     
     shape = np.shape(msg_down)
     mean_msg_val = msg_down.mean(axis=2)
-    for i in range(np.shape(msg_down)[2]):
-        msg_down[0:shape[0],0:shape[1],i] =  msg_down[0:shape[0],0:shape[1],i] - mean_msg_val[0:shape[0],0:shape[1]]
-    
+    msg_down = np.transpose(np.subtract(np.transpose(msg_down,(2,0,1)),mean_msg_val),(1,2,0))
+    # for i in range(np.shape(msg_down)[2]):
+        # msg_down[0:shape[0],0:shape[1],i] =  msg_down[0:shape[0],0:shape[1],i] - mean_msg_val[0:shape[0],0:shape[1]]
+        # msg_down[0:shape[0],0:shape[1],i] =  msg_down[0:shape[0],0:shape[1],i] /mean_msg_val[0:shape[0],0:shape[1]]
     
     shape = np.shape(msg_left)
     mean_msg_val = msg_left.mean(axis=2)
-    for i in range(np.shape(msg_left)[2]):
-        msg_left[0:shape[0],0:shape[1],i] =  msg_left[0:shape[0],0:shape[1],i] - mean_msg_val[0:shape[0],0:shape[1]]
-    
+    msg_left = np.transpose(np.subtract(np.transpose(msg_left,(2,0,1)),mean_msg_val),(1,2,0))
+    # for i in range(np.shape(msg_left)[2]):
+        # msg_left[0:shape[0],0:shape[1],i] =  msg_left[0:shape[0],0:shape[1],i] - mean_msg_val[0:shape[0],0:shape[1]]
+        # msg_left[0:shape[0],0:shape[1],i] =  msg_left[0:shape[0],0:shape[1],i] /mean_msg_val[0:shape[0],0:shape[1]]
     
     shape = np.shape(msg_right)
     mean_msg_val = msg_right.mean(axis=2)
-    for i in range(np.shape(msg_right)[2]):
-        msg_right[0:shape[0],0:shape[1],i] =  msg_right[0:shape[0],0:shape[1],i] - mean_msg_val[0:shape[0],0:shape[1]]
-        
+    msg_right = np.transpose(np.subtract(np.transpose(msg_right,(2,0,1)),mean_msg_val),(1,2,0))
+    # for i in range(np.shape(msg_right)[2]):
+        # msg_right[:,:,i] =  msg_right[:,:,i] - mean_msg_val[:,:]
+        # msg_right[0:shape[0],0:shape[1],i] =  msg_right[0:shape[0],0:shape[1],i] /mean_msg_val[0:shape[0],0:shape[1]]
     return msg_up, msg_down, msg_left, msg_right
     
 # def update_messages(msg_up_prev, msg_down_prev, msg_left_prev, msg_right_prev, data_cost, potentialUp,potentialDown,potentialLeft,potentialRight):
@@ -137,49 +143,44 @@ def update_messages(msg_up_prev, msg_down_prev, msg_left_prev, msg_right_prev, d
     aux_left=np.zeros(np.shape(msg_up))
 
     # print(np.histogram(data_cost[np.where(data_cost<10000)]))
-    aux_up[1:-1,1:-1,:] = copy.deepcopy(msg_up_prev[0:-2,1:-1,:]+msg_left_prev[1:-1,0:-2,:]+msg_right_prev[1:-1,2:,:]+data_cost[1:-1,1:-1,:])
-    aux_down[1:-1,1:-1,:] = copy.deepcopy(msg_down_prev[2:,1:-1,:]+msg_left_prev[1:-1,:-2,:]+msg_right_prev[1:-1,2:,:]+data_cost[1:-1,1:-1,:])
-    aux_left[1:-1,1:-1,:] = copy.deepcopy(msg_up_prev[0:-2,1:-1,:]+msg_down_prev[2:,1:-1,:]+msg_left_prev[1:-1,0:-2,:]+data_cost[1:-1,1:-1,:])
-    aux_right[1:-1,1:-1,:] = copy.deepcopy(msg_up_prev[0:-2,1:-1,:]+msg_down_prev[2:,1:-1,:]+msg_right_prev[1:-1,2:,:]+data_cost[1:-1,1:-1,:])
+    aux_up[1:-1,1:-1,:] = copy.deepcopy(msg_up_prev[2:,1:-1,:]+msg_left_prev[1:-1,2:,:]+msg_right_prev[1:-1,:-2,:]+data_cost[1:-1,1:-1,:])
+    aux_down[1:-1,1:-1,:] = copy.deepcopy(msg_down_prev[:-2,1:-1,:]+msg_left_prev[1:-1,2:,:]+msg_right_prev[1:-1,:-2,:]+data_cost[1:-1,1:-1,:])
+    aux_left[1:-1,1:-1,:] = copy.deepcopy(msg_up_prev[2:,1:-1,:]+msg_down_prev[:-2,1:-1,:]+msg_left_prev[1:-1,2:,:]+data_cost[1:-1,1:-1,:])
+    aux_right[1:-1,1:-1,:] = copy.deepcopy(msg_up_prev[2:,1:-1,:]+msg_down_prev[:-2,1:-1,:]+msg_right_prev[1:-1,:-2,:]+data_cost[1:-1,1:-1,:])
     
 
-    # print(np.shape(aux_up),np.shape(potentialUp[0]).reshape(width,height,nbValue),np.shape(msg_up))
-    # print(np.shape(np.transpose(np.transpose(potentialDown[0]),(1,0,2))),np.shape(aux_up))
-    for i in range(num_disp_vals):
+
+    print("update message")
+    for i in tqdm.tqdm(range(num_disp_vals)):
         msg_up[1:-1,1:-1,i] = np.min(aux_up[1:-1,1:-1,:] + np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[1:-1,1:-1,:]\
-            +np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[0:-2,1:-1,:],axis=2)
-        # msg_up[1:-1,1:-1,i] = np.min(aux_up[1:-1,1:-1,:] + np.transpose(np.transpose(potentialUp[i]),(1,0,2))[1:-1,1:-1,:]\
-            # ,axis=2)
+            +np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[2:,1:-1,:],axis=2)
 
-        # msg_up[1:-1,1:-1,i] = np.where(np.min(aux_up[1:-1,1:-1,:],axis=2)+1<aux_up[1:-1,1:-1,i],\
-            # np.min(aux_up[1:-1,1:-1,:],axis=2),aux_up[1:-1,1:-1,i])
-        # msg_up[1:-1,1:-1,i] = np.min(aux_up[1:-1,1:-1,:],axis=2)
         msg_down[1:-1,1:-1,i] = np.min(aux_down[1:-1,1:-1,:] + np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[1:-1,1:-1,:]+\
-            np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[2:,1:-1,:],axis=2)
-        # msg_down[1:-1,1:-1,i] = np.min(aux_down[1:-1,1:-1,:] + np.transpose(np.transpose(potentialDown[i]),(1,0,2))[1:-1,1:-1,:]\
-            # ,axis=2)
-        # msg_down[1:-1,1:-1,i] = np.where(np.min(aux_down[1:-1,1:-1,:],axis=2)+1<aux_down[1:-1,1:-1,i],\
-            # np.min(aux_down[1:-1,1:-1,:],axis=2),aux_down[1:-1,1:-1,i])
-        # msg_down[1:-1,1:-1,i] = np.min(aux_down[1:-1,1:-1,:],axis=2)
-        msg_right[1:-1,1:-1,i] = np.min(aux_right[1:-1,1:-1,:] + np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[1:-1,1:-1,:]+\
-            np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[1:-1,0:-2,:],axis=2)
-        # msg_right[1:-1,1:-1,i] = np.min(aux_right[1:-1,1:-1,:] + np.transpose(np.transpose(potentialRight[i]),(1,0,2))[1:-1,1:-1,:]\
-            # ,axis=2)
-        # msg_right[1:-1,1:-1,i] = np.where(np.min(aux_right[1:-1,1:-1,:],axis=2)+1<aux_right[1:-1,1:-1,i],\
-            # np.min(aux_right[1:-1,1:-1,:],axis=2),aux_right[1:-1,1:-1,i])
-        # msg_right[1:-1,1:-1,i] = np.min(aux_right[1:-1,1:-1,:],axis = 2)
+            np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[:-2,1:-1,:],axis=2)
 
-        # msg_left[1:-1,1:-1,i] = np.where(np.min(aux_left[1:-1,1:-1,:],axis=2)+1<aux_left[1:-1,1:-1,i],\
-            # np.min(aux_left[1:-1,1:-1,:],axis=2),aux_left[1:-1,1:-1,i])
+
         msg_left[1:-1,1:-1,i] = np.min(aux_left[1:-1,1:-1,:] + np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[1:-1,1:-1,:] +\
             np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[1:-1,2:,:],axis=2)
-        # msg_left[1:-1,1:-1,i] = np.min(aux_left[1:-1,1:-1,:] + np.transpose(np.transpose(potentialLeft[i]),(1,0,2))[1:-1,1:-1,:]\
-            # ,axis=2)
-        # msg_left[1:-1,1:-1,i] = np.min(aux_left[1:-1,1:-1,:],axis=2)
+
+        msg_right[1:-1,1:-1,i] = np.min(aux_right[1:-1,1:-1,:] + np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[1:-1,1:-1,:]+\
+            np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[1:-1,0:-2,:],axis=2)
+
+
+
     
-    # msg_up = np.array(msg_up)
-    # print(np.histogram(msg_up[:,:,1]))
-    return msg_up,msg_down,msg_right,msg_left
+    # for i in range(num_disp_vals):
+    #     msg_up[1:-1,1:-1,i] = np.min(aux_up[1:-1,1:-1,:] + np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[1:-1,1:-1,:],axis=2)
+
+    #     msg_down[1:-1,1:-1,i] = np.min(aux_down[1:-1,1:-1,:] + np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[1:-1,1:-1,:],axis=2)
+
+    #     msg_right[1:-1,1:-1,i] = np.min(aux_right[1:-1,1:-1,:] + np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[1:-1,1:-1,:],axis=2)
+
+
+    #     msg_left[1:-1,1:-1,i] = np.min(aux_left[1:-1,1:-1,:] + np.transpose(np.transpose(potentialTotal[i]),(1,0,2))[1:-1,1:-1,:],axis=2)
+
+    
+
+    return msg_up,msg_down,msg_left,msg_right
  
 
 
@@ -191,14 +192,10 @@ def calculatePotentialCost(images):
         potential[:,:,:] = np.linalg.norm(np.subtract(images[:,:,:,:],images[i,:,:,:]),axis=3)
         potentialTotal.append(copy.deepcopy(potential))
 
-
-
-        
-
     return np.array(potentialTotal)
 
 
-def stereo_belief_propagation(images,distance, H,lambda_value, gamma_value,outputPath):
+def stereo_belief_propagation(images,distance, H, potential,lambda_value, gamma_value,outputPath):
     num_disp_values = np.shape(images)[0] #number of disparity values
     tau             = 15 
     num_iterations  = 100 #number of iterations
@@ -210,7 +207,8 @@ def stereo_belief_propagation(images,distance, H,lambda_value, gamma_value,outpu
         data_cost[:,:,i] = float(lambda_value) * distance[i,:,:] + gamma_value * H[i,:,:]
 
 
-    potentialTotal = calculatePotentialCost(images)
+    # potentialTotal = calculatePotentialCost(images)
+    potentialTotal = copy.deepcopy(potential)
     print(np.shape(potentialTotal))
     #allocate memory for storing the energy at each iteration
     energy = []
@@ -245,7 +243,7 @@ def stereo_belief_propagation(images,distance, H,lambda_value, gamma_value,outpu
         #beliefs: a 3D array of size height x width x num_disp_value; each
         #  element beliefs(y,x,l) is the belief of pixel p = (y,x) taking the
         #  label l
-        beliefs = compute_belief( data_cost, msg_up, msg_down, msg_left, msg_right )
+        beliefs = compute_belief(data_cost, msg_up, msg_down, msg_left, msg_right)
         
         #compute MAP disparities
         #disparity: a 2D array of size height x width the disparity value of each 
@@ -255,17 +253,20 @@ def stereo_belief_propagation(images,distance, H,lambda_value, gamma_value,outpu
         # if iter%10 == 0 :
             
         newImage = reconstructionImage(images,disparity)
-        if iter >2 :
-            cv2.imwrite(os.path.join(outputPath,"output/Diff{}.jpeg".format(iter)),np.linalg.norm(np.abs(newImage-old_image),axis=2))
-            print(np.sum(np.abs(newImage-old_image)))
-        old_image = copy.deepcopy(newImage)
-        cv2.imwrite(os.path.join(outputPath,"output/MRFCOST{}.jpeg".format(iter)),newImage)
-        
+
+        # if iter%5 == 0:
+        #     if iter >2 :
+        #         cv2.imwrite(os.path.join(outputPath,"output/Diff{}.jpeg".format(iter)),np.linalg.norm(np.abs(newImage-old_image),axis=2))
+        #         print(np.sum(np.abs(newImage-old_image)))
+        #     old_image = copy.deepcopy(newImage)
+        #     cv2.imwrite(os.path.join(outputPath,"output/MRFCOST{}.jpeg".format(iter)),newImage)
+        #     cv2.imwrite(os.path.join(outputPath,"output/Disparity{}.jpeg".format(iter)),np.array(disparity)*10)
         #compute MRF energy   
         energy.append(compute_energy(data_cost,float(lambda_value),distance,gamma_value,H, disparity, potentialTotal))
-        print("Total Energy: ",energy[-1])
-        # if len(energy)>2 and abs(energy[-1]-energy[-2])/energy[-2]<0.000001:
-            # break
+        # print("Total Energy: ",energy[-1])
+
+        if len(energy)>2 and energy[-1]-energy[-2]==0:
+            break
         
     # disparity = (disparity*(256/num_disp_values)).astype("uint8")
     # cv2.imshow("DISPARITY ITER {}".format(iter),disparity)
@@ -282,7 +283,7 @@ def putNone(image):
 
 
 def normalize(distance):
-    for i in range(len(distance[0])):
+    for i in tqdm.tqdm(range(len(distance[0]))):
         for j in range(len(distance[0][0])):
 
             Inf = True
@@ -328,7 +329,7 @@ def calculateMap(images):
 
 def reconstructionImage(images,disparity):
     new_image = np.zeros(np.shape(images[0]))
-    print(np.shape(images))
+    disparity = disparity.astype(int)
     for i in range(len(new_image)):
         for j in range(len(new_image[i])):
             for k in range(len(new_image[i,j])):
@@ -366,7 +367,7 @@ def calculateAverageImage(images):
 ## MAIN :
 if __name__ == "__main__":
 
-    inputPath = "outputVideo1"
+    inputPath = "outputVideoBlur"
     if not os.path.exists(os.path.join(inputPath,"output")):
         os.makedirs(os.path.join(inputPath,"output"))
     imagesPath = glob.glob(os.path.join(inputPath,"*.jpg"))
@@ -384,14 +385,14 @@ if __name__ == "__main__":
     # cv2.imwrite(os.path.join(inputPath,"output","avg.jpg"),averageImage)
     
     print "Calculate cost H"
-    H = calculateMap(images)
-    averageImage = []
+    # H = calculateMap(images)
+    # averageImage = []
     H = np.zeros((np.shape(images)[0],np.shape(images)[1],np.shape(images)[2]))
-
+   
     print "Calculate cost distance"
     with open(os.path.join(inputPath,"pickleAux/distance.pck"),"rb") as f :
         distance = pickle.load(f)
-
+    print(np.shape(distance))
 
     # distance = np.array(distance)
 
@@ -407,7 +408,40 @@ if __name__ == "__main__":
     lambda_value = 100
     gamma_value = 0
     print "Begin minimisation"
-    disparity_est, energy = stereo_belief_propagation(images,distance,H,lambda_value,gamma_value,inputPath)
+    potential = calculatePotentialCost(images)
+
+
+
+
+
+    height = np.shape(images)[1]
+    width = np.shape(images)[2]
+    numberOfSeparation = 10
+    reducedHeight = height/(2*numberOfSeparation+1)
+    reducedWidth = width/(2*numberOfSeparation+1)
+
+    
+    # image = 
+    imageShape = np.shape(images[0])
+    disparity = np.zeros(imageShape[:2])
+    height = imageShape[0]/(2*numberOfSeparation+1)
+    for i in range(numberOfSeparation) :
+        for j in range(numberOfSeparation):
+            print("We're at i,j:{},{}".format(i,j))
+            # disparityReduced = disparity[2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
+            imagesReduced = images[:,2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
+            distanceReduced = distance[:,2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
+            HReduced = H[:,2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
+            potentialReduced = potential[:,:,2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]
+            
+            disparity_est, energy = stereo_belief_propagation(imagesReduced,distanceReduced,HReduced,potentialReduced,lambda_value,gamma_value,inputPath)
+            print("The energy is {}".format(energy))
+            print(disparity)
+            disparity[2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1]= copy.deepcopy(disparity_est)
+            newImage = reconstructionImage(images,disparity)
+            cv2.imwrite(os.path.join(inputPath,"output/MRFCOST{}{}.jpeg".format(i,j)),newImage)
+
+    # disparity_est, energy = stereo_belief_propagation(images,distance,H,lambda_value,gamma_value,inputPath)
     # disparity_est = np.argmin(distance,axis = 0)
 
     print(disparity_est)
