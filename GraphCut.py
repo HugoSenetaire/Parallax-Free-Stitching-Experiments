@@ -42,6 +42,7 @@ def compute_energy(lambda_value,distance,gamma_value,H,disparity, potential,deta
             # print(aux)
             if isnan(aux1) or isinf(aux1):
                 aux1 = 0
+                return np.inf
             if isnan(aux2) or isinf(aux2) :
                 aux2 = 0
             if isnan(aux3) or isinf(aux3):
@@ -60,6 +61,7 @@ def compute_energy(lambda_value,distance,gamma_value,H,disparity, potential,deta
             energyDataCost+=(aux1 + aux3)
     
     if details :
+        print("Mean Distance",energyDistance/(np.shape(distance)[1]*np.shape(distance)[2]))
         print("Energy Distance", energyDistance)
         print("Energy MAD", energyMAD)
         print("energyPotential",energyPotential)
@@ -87,24 +89,29 @@ def putNone(image):
 
 
 def normalize(distance):
+    compteur = 0
+    compteur2 = 0
     for i in range(len(distance[0])):
         for j in range(len(distance[0][0])):
 
             Inf = True
             for k in range(len(distance)):
-                if not isinf(distance[k][i][j]) or distance[k][i][j]< 100:
+                if (not isinf(distance[k][i][j])) or distance[k][i][j]< 100:
                     Inf = False
                    
 
             if Inf :
+                compteur+=1
                 for k in range(len(distance)):
                     distance[k][i][j] = 0
             else :
+                compteur2+=1
                 for k in range(len(distance)):
                     if isinf(distance[k][i][j]) or distance[k][i][j]> 100:
-                        distance[k][i][j] = 100000
+                        distance[k][i][j] = np.inf
 
-                
+    print("Put to 0 {}".format(compteur))     
+    print("Put to max {}".format(compteur2))
     return distance
 
 
@@ -404,7 +411,7 @@ def graphCut(images,distance,H,potential,lambda_value,gamma_value,disparityBegin
             
                 
             indices = np.where(partition==True)
-            indices2 = np.where(partition==False)
+      
             for index in indices[0] :
                 x,y = getCoords(index,maxCols,maxLines)
                 disparityAux[x,y] = labelNumber
@@ -418,17 +425,17 @@ def graphCut(images,distance,H,potential,lambda_value,gamma_value,disparityBegin
                 energy = copy.deepcopy(energyAux)
 
 
-            for index in indices2[0] :
-                x,y = getCoords(index,maxCols,maxLines)
-                disparityAux[x,y] = labelNumber
-            energyAux = compute_energy(lambda_value,distance,gamma_value,H,disparityAux, potential)
-            # print("New {} OLD {}".format(energyAux,energy))
-            if energyAux<energy:
-                # print("New {} OLD {}".format(energyAux,energy))
-                disparity = copy.deepcopy(disparityAux)
-                noChange = False
-                # print("NICE")
-                energy = copy.deepcopy(energyAux)
+            # for index in indices2[0] :
+            #     x,y = getCoords(index,maxCols,maxLines)
+            #     disparityAux[x,y] = labelNumber
+            # energyAux = compute_energy(lambda_value,distance,gamma_value,H,disparityAux, potential)
+            # # print("New {} OLD {}".format(energyAux,energy))
+            # if energyAux<energy:
+            #     # print("New {} OLD {}".format(energyAux,energy))
+            #     disparity = copy.deepcopy(disparityAux)
+            #     noChange = False
+            #     # print("NICE")
+            #     energy = copy.deepcopy(energyAux)
 
         count+=1
     print("Last energy is {}".format(compute_energy(lambda_value,distance,gamma_value,H,disparity,potential,details=True)))
@@ -444,8 +451,8 @@ def graphCut(images,distance,H,potential,lambda_value,gamma_value,disparityBegin
 if __name__ == "__main__":
 
     inputPath = "outputVideo1"
-    if not os.path.exists(os.path.join(inputPath,"output")):
-        os.makedirs(os.path.join(inputPath,"output"))
+    if not os.path.exists(os.path.join(inputPath,"output2")):
+        os.makedirs(os.path.join(inputPath,"output2"))
     imagesPath = glob.glob(os.path.join(inputPath,"*.jpg"))
     imagesPath.extend(glob.glob(os.path.join(inputPath,"*.jpeg")))
     imagesPath.extend(glob.glob(os.path.join(inputPath,"*.png")))
@@ -468,9 +475,12 @@ if __name__ == "__main__":
         distance = pickle.load(f)
 
 
-    print("Normalize distance")  
+    print("Normalize distance") 
+    # print("Distance before normalisation {}".format(np.mean(distance))) 
     distance = np.array(normalize(distance))
-
+    # print("Distance after normalisation {}".format(np.mean(distance.flatten())))
+    # distance = np.array(distance)
+    
     #Algorithm
     lambda_value = 0.1
     gamma_value = 1
@@ -506,7 +516,7 @@ if __name__ == "__main__":
             disparity_est = graphCut(imagesReduced,distanceReduced,HReduced,potentialReduced,lambda_value,gamma_value,disparityReduced)
             disparity[2*i*reducedHeight:(2*i+3)*reducedHeight+1,2*j*reducedWidth:(2*j+3)*reducedWidth+1] = disparity_est
             newImage = reconstructionImage(images,disparity)
-            cv2.imwrite(os.path.join(inputPath,"output/MRFCOST{}{}.jpeg".format(i,j)),newImage)
+            cv2.imwrite(os.path.join(inputPath,"output2/MRFCOST{}{}.jpeg".format(i,j)),newImage)
 
 
 
@@ -514,4 +524,4 @@ if __name__ == "__main__":
     # newImage = reconstructionImage(images,disparity_est)
     
     
-    # cv2.imwrite("output3/output/MRFCOST.jpeg",newImage)
+    # cv2.imwrite("output3/output/MRFCOST.jpeg",newImage) 
