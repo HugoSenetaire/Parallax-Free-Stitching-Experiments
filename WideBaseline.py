@@ -94,7 +94,7 @@ def featureMatching(featuresA,featuresB):
     # kpsA, descriptorA, SA = detect_and_describe(featuresA)
     # kpsB, descriptorB, SB = detect_and_describe(featuresB)
     matcher = cv2.DescriptorMatcher_create("FlannBased")
-    ratio=0.75
+    ratio=0.80
     matches = matcher.knnMatch(descriptorA, descriptorB, 2)  
     matches = filter(lambda m: len(m) == 2 and m[0].distance < m[1].distance * ratio, matches)
     matches = [(m[0].trainIdx, m[0].queryIdx) for m in matches]
@@ -174,6 +174,8 @@ def outlier_rejection(ptsA,ptsB):
         if len(listNeighboursA)>4 and len(listNeighboursB)>4:
             h, status = cv2.findHomography(np.array(listNeighboursA), np.array(listNeighboursB))
             # h = get_perspective_transform_matrix(listNeighboursA,listNeighboursB)
+            if not np.any(status):
+                continue
             for i in range(len(listNeighboursA)):
                 if np.linalg.norm(apply_homography(h,listNeighboursA[i])-listNeighboursB[i])**2<gamma :
                     if listIndexNeighbours[i] not in listCommon : 
@@ -549,7 +551,7 @@ def optimisation_mesh(images,dico,points):
         for w in Wr :
             # print(np.shape(w))
             # print(w.dot(V))
-            B.append(np.linalg.norm(w.dot(V)))
+            B.append(np.linalg.norm(w.dot(V))**2)
         # print(np.shape(B))
         resultB = np.sum(B)
         
@@ -628,28 +630,34 @@ def optimisation_mesh(images,dico,points):
 
         return A+B+C
 
-    res = scipy.optimize.fmin_l_bfgs_b(energy,V,fprime=gradEnergy)
+    res = scipy.optimize.fmin_l_bfgs_b(energy,V,fprime=gradEnergy,bounds=[(0,None)]*len(V))
     
     return res
 
 
 
 def reconstruction(newGrid,images):
-    
+    V = create_grid(images)
     size = len(newGrid)/len(images)
     ymax = np.max(newGrid[0:size:2])
     xmax = np.max(newGrid[1:size:2])
     print(xmax,ymax)
     for i in range(len(images)) :
         grid = newGrid[i*size:(i+1)*size]
-        xmap = grid[0:size:2]
-        ymap = grid[1:size:2]
-
-
-        yminLoc = np.max(ymap)
-        xminLoc = np.max(xmap)
+        xmap = grid[1:size:2]
+        ymap = grid[0:size:2]
+        yminLoc = np.min(ymap)
+        xminLoc = np.min(xmap)
         ymaxLoc = np.max(ymap)
         xmaxLoc = np.max(xmap)
+
+        
+
+
+
+        print(xminLoc,yminLoc,xmaxLoc,ymaxLoc)
+
+    return False
 
 
 
@@ -659,8 +667,8 @@ def reconstruction(newGrid,images):
 
 
 if __name__ == "__main__":
-    
-    inputPath = "SimpleWideBaseline"
+  
+    inputPath = "SimpleWideBaseline2"
     # if not os.path.exists(os.path.join(inputPath,"output")):
         # os.makedirs(os.path.join(inputPath,"output"))
     imagesPath = glob.glob(os.path.join(inputPath,"*.jpg"))
@@ -674,30 +682,35 @@ if __name__ == "__main__":
         # images[-1]= putNone(images[-1])
     images = np.array(images)
 
-    # dico,points = getCommonFeatures(images)
+    dico,points = getCommonFeatures(images)
 
-    import cPickle as pickle
+    # import cPickle as pickle
     # with open("dico.pck","wb") as f :
         # pickle.dump(dico,f)
 
-    with open("dico.pck","rb") as f :
-        dico = pickle.load(f)
+    # with open("dico.pck","rb") as f :
+        # dico = pickle.load(f)
 
 
 
     # with open("points.pck","wb") as f :
         # pickle.dump(points,f)
 
-    with open("points.pck","rb") as f :
-        points = pickle.load(f)
+    # with open("points.pck","rb") as f :
+        # points = pickle.load(f)
 
     
-    print(len(dico[0,1]))
+
     # V = create_grid(images)
     # Wa,nbN = create_weight_a(images,V,dico,points)
     # Wr = create_weight_r(images,V)
     # optim_scale(images,dico,points)
     A = optimisation_mesh(images,dico,points)
-    with open("resultSparse.pck","wb") as f :
+    with open("resultSparseKitchen.pck","wb") as f :
         pickle.dump(A,f)
- 
+
+
+    # with open("resultSparse.pck","rb") as f :
+        # A = pickle.load(f)
+    # print(A[0])
+    # reconstruction(A[0],images)
