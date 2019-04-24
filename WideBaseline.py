@@ -13,6 +13,7 @@ import scipy
 from scipy.sparse import csc_matrix
 from scipy.optimize import minimize
 from scipy.spatial import ConvexHull
+from scipy.sparse import csr_matrix
 
 # Constants :
 
@@ -323,8 +324,11 @@ def create_weight_r(images,V):
     size = len(V)/len(images)
     nbImages,height,width = np.shape(images)[:3]
     weights = []
+    weightsTranspose = []
     for index in range(0,len(V),2):
+
         W  = np.zeros((2,len(V)))
+        
         W[0][index] = 1.
         W[1][index+1] = 1.
         i = index
@@ -340,13 +344,12 @@ def create_weight_r(images,V):
         if len(np.where([horizontalLeftBorder,horizontalRightBorder,verticalDownBorder,verticalUpBorder])[0])>=2 :
             print("Corner at : ")    
             print(imageNumber,row,column)
+
         elif horizontalLeftBorder or horizontalRightBorder :
             W[0][i+2*(widthStep+1)] = -1/2.
             W[1][i+2*(widthStep+1)+1] = -1/2.
             W[0][i-2*(widthStep+1)] = -1/2.
             W[1][i-2*(widthStep+1)+1] = -1/2.
-
-
 
         elif verticalUpBorder or verticalDownBorder :
             W[0][i+2] = -1/2.
@@ -364,9 +367,15 @@ def create_weight_r(images,V):
             W[0][i-2*(widthStep+1)] = -1/4.
             W[1][i-2*(widthStep+1)+1] = -1/4.
 
-        weights.append(copy.deepcopy(W))
 
-    return weights
+        Waux = csr_matrix(W)
+        Waux2 = csc_matrix(np.transpose(W))
+        # weights.append(copy.deepcopy(W))
+        weights.append(copy.deepcopy(Waux))
+        weightsTranspose.append(copy.deepcopy(Waux2))
+
+    # return weights
+    return weights,weightsTranspose
 
 
 def create_w_corner(V,images):
@@ -513,28 +522,38 @@ def calculate_shape(Wcorner,V):
 def optimisation_mesh(images,dico,points):
     V = create_grid(images)
     Wa,nbN = create_weight_a(images,V,dico,points) # Tableau de W_i - W_j
-    Wr = create_weight_r(images,V) # Tableau pour tout v de Wv - 1/Nv * Sum(Wv_i)
+    Wr,WrTransposed = create_weight_r(images,V) # Tableau pour tout v de Wv - 1/Nv * Sum(Wv_i)
     s = optim_scale(images,dico,points)
     Wcorner = create_w_corner(V,images) # W corner (Wtl, Wtr,Wbl,Wbr) * nbImages
     Sinit = copy.deepcopy(calculate_shape(Wcorner,V))
     # print("NB PAR CASE ",nbN)
 
-
+    import time
 
     def energy(V) :
+ 
         A = np.linalg.norm(np.dot(Wa,V),axis =1)**2
         # print(np.shape(A))
         # print("WHERE",Wa[0][0])
         # print(A)
         resultA = np.sum(np.dot(1/nbN,A))
+  
         # resultA = 0
         # for i in range(len(nbN)):
             # resultA+=(A[i]*1/nbN[i])
         # print(resultA)
+        print(np.shape(Wr[0]),np.shape(V))
 
-        B = np.linalg.norm(np.dot(Wr,V),axis = 1)**2
+        # B = np.linalg.norm(np.dot(Wr,V),axis = 1)**2
+        B = []
+        for w in Wr :
+            # print(np.shape(w))
+            # print(w.dot(V))
+            B.append(np.linalg.norm(w.dot(V)))
         # print(np.shape(B))
         resultB = np.sum(B)
+        
+        
         # print("result B {}".format(resultB))
 
         
@@ -543,8 +562,7 @@ def optimisation_mesh(images,dico,points):
         Scurrent = calculate_shape(Wcorner,V)
         print("CURRENT - INIT SHAPE",np.shape(Scurrent-s*Sinit))
         resultC = np.sum(np.linalg.norm(Scurrent-s*Sinit,axis =1))
-     
-
+    
 
         print("Energy A {}".format(resultA))
         print("Energy B {}".format(resultB))
@@ -567,11 +585,21 @@ def optimisation_mesh(images,dico,points):
         A = np.dot(1/nbN,np.dot(auxA,V))
         # print("A grad",np.shape(A))
 
+        
+        # for i in range(len(Wr)):
+            # auxB.append(np.matmul(np.transpose(Wr[i]),Wr[i]))
         auxB = []
         for i in range(len(Wr)):
-            auxB.append(np.matmul(np.transpose(Wr[i]),Wr[i]))
-        # print(np.shape(auxB))
-        B = np.sum(np.dot(auxB,V),axis=0)
+            # print(np.shape(Wr[i].dot(V)))
+            auxB.append(Wr[i].dot(V))
+
+        
+        auxauxB = []
+        for i in range(len(Wr)):
+            auxauxB.append(WrTransposed[i].dot(auxB[i]))
+
+        print(np.shape(auxauxB))
+        B = np.sum(auxauxB,axis=0)
         # print("B Grad",np.shape(B))
       
         Scurrent = calculate_shape(Wcorner,V)
@@ -602,7 +630,7 @@ def optimisation_mesh(images,dico,points):
 
     res = scipy.optimize.fmin_l_bfgs_b(energy,V,fprime=gradEnergy)
     
-    return res.x
+    return res
 
 
 
@@ -624,9 +652,9 @@ def reconstruction(newGrid,images):
         xmaxLoc = np.max(xmap)
 
 
-        
+
     
-        
+ 
 
 
 
@@ -670,6 +698,6 @@ if __name__ == "__main__":
     # Wr = create_weight_r(images,V)
     # optim_scale(images,dico,points)
     A = optimisation_mesh(images,dico,points)
-    with open("result.pck","wb") as f :
+    with open("resultSparse.pck","wb") as f :
         pickle.dump(A,f)
  
