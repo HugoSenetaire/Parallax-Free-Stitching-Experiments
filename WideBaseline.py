@@ -16,6 +16,7 @@ from scipy.spatial import ConvexHull
 from scipy.sparse import csr_matrix
 from skimage.transform import PiecewiseAffineTransform, warp
 from skimage import data
+import SEAGULL
 import spectral
 #========#========#========#========#========#========#========#========#========#========#========#========
 # Constants
@@ -31,8 +32,8 @@ datasetNumber = 2
 
 # heightStep = 20
 # widthStep = 20
-lambdaC = 1
-lambdaB = 1e15
+lambdaC = 1e8
+lambdaB = 1e8
 lambdas = 0.1
 
 #========#========#========#========#========#========#========#========#========#========#========#========
@@ -290,27 +291,40 @@ def find_4_corners(point,V,width,height,shift):
 
 
 def create_w(corner,point,V,warp):
+    """ POINT + XY ou YX ???? BIGBIG PROBLEM WITH THE CORNER """
+
+
     # Essayer avec des sparses
     W = np.zeros((2,len(V)))
     # print("LE V",V)
-    w1 = (V[corner[3]]-point[0])*(V[corner[3]+1]-point[1])
-    w2 = (point[0]-V[corner[2]])*(V[corner[2]+1]-point[1])
-    w3 = (point[0]-V[corner[0]])*(point[1]-V[corner[0]+1])
-    w4 = (V[corner[1]]-point[0])*(point[1]-V[corner[1]+1])
+    print("POINT",point)
+    print("corner",V[corner[0]],V[corner[0]+1])
+    # print("")
+    w1 = (V[corner[3]+1]-point[0])*(V[corner[3]]-point[1])
+    w2 = (point[0]-V[corner[2]+1])*(V[corner[2]]-point[1])
+    w3 = (point[0]-V[corner[0]+1])*(point[1]-V[corner[0]])
+    w4 = (V[corner[1]+1]-point[0])*(point[1]-V[corner[1]])
+
+    wtot = float(w1+w2+w3+w4)
+    print(wtot)
     # print("corner",corner)
-    # print("LES W",w1,w2,w3,w4)
+    print("LES W",w1,w2,w3,w4)
 
     W[0,warp+corner[0]] = w1
-    W[1,warp+corner[0]+1] = w1  
+    W[1,warp+corner[0]+1] = w1
 
     W[0,warp+corner[1]] = w2
-    W[1,warp+corner[1]+1] = w2 
+    W[1,warp+corner[1]+1] = w2
 
     W[0,warp+corner[2]] = w3
-    W[1,warp+corner[2]+1] = w3 
+    W[1,warp+corner[2]+1] = w3
 
     W[0,warp+corner[3]] = w4
-    W[1,warp+corner[3]+1] = w4 
+    W[1,warp+corner[3]+1] = w4
+
+    print("WHERE",W[np.where(W!=0)])
+
+    # W=W/wtot
 
     return W
 
@@ -340,7 +354,7 @@ def create_weight_a(images,V,dico,points):
 
             W1 = create_w(np.array(corner1),points[key[0]][indexPoint1],V,key[0]*size)
             W2 = create_w(np.array(corner2),points[key[1]][indexPoint2],V,key[1]*size)
-
+            
 
 
             Waux = csr_matrix(W1-W2)
@@ -348,7 +362,7 @@ def create_weight_a(images,V,dico,points):
             Waux2 = csc_matrix(np.transpose(W1-W2))
             weights.append(copy.deepcopy(Waux))
             weightsTranspose.append(copy.deepcopy(Waux2))
-            
+            print(Waux)
             # Mise a jour du poid dans la cellule :
             if corner1[0] in dicAux.keys():
                 dicAux[corner1[0]].append(compteur)
@@ -807,12 +821,12 @@ def optimisation_mesh_v2(images,dico,points) :
             right = np.transpose(copy.deepcopy(As)*ecart)
             # print(np.linalg.eig(left))
             # print(np.shape(np.transpose(right)),np.shape(left))
-            # V = np.linalg.tensorsolve(left,right)
+            V = np.linalg.tensorsolve(left,right)
             print(np.shape(V))
             # V = np.matmul(np.linalg.inv(left),right)
             
-            cholesky,lower = scipy.linalg.cho_factor(left,lower = True,check_finite =True)
-            V = scipy.linalg.solve(cholesky,right)
+            # cholesky,lower = scipy.linalg.cho_factor(left,lower = True,check_finite =True)
+            # V = scipy.linalg.solve(cholesky,right)
             # L = np.linalg.cholesky(left)
             V = np.array(V).reshape(-1)
             print(V)
@@ -1009,8 +1023,8 @@ def optimisation_mesh(images,dico,points):
         print("GRADFINAL",np.shape(A+B+C))
         return A+B+C
 
-    res = copy.deepcopy(scipy.optimize.fmin_l_bfgs_b(energy,V,fprime=gradEnergyApproximated))
-    # res = copy.deepcopy(scipy.optimize.fmin_l_bfgs_b(energy,V,approx_grad = True,bounds=[(0,None)]*len(V),maxiter = 1))
+    # res = copy.deepcopy(scipy.optimize.fmin_l_bfgs_b(energy,V,fprime=gradEnergyApproximated))
+    res = copy.deepcopy(scipy.optimize.fmin_l_bfgs_b(energy,V,fprime=gradEnergyApproximated,bounds=[(0,None)]*len(V),maxiter = 5000))
     # for i in range(10):
         # reconstruction(res[0],images)
         # res = copy.deepcopy(scipy.optimize.fmin_l_bfgs_b(energy,res[0],fprime=gradEnergy,bounds=[(0,None)]*len(V),maxiter = 100))
@@ -1171,11 +1185,13 @@ def reconstruction(newGrid,images):
         newImage = cv2.remap(images[i],newMap)
         newImages.append(copy.deepcopy(newImage))
     return newImages
-        
- #========#========#========#========#========#========#========#========#========#========#========#========
- #MAIN
- #========#========#========#========#========#========#========#========#========#========#========#========
 
+
+
+#========#========#========#========#========#========#========#========#========#========#========#========
+#MAIN
+#========#========#========#========#========#========#========#========#========#========#========#========
+# print("MAIN")
 
 
 if __name__ == "__main__":
@@ -1195,7 +1211,29 @@ if __name__ == "__main__":
         # images[-1]= putNone(images[-1])
     images = np.array(images)
     # print(np.shape(images))
-    dico,points = getCommonFeatures(images)
+    # dico,points = getCommonFeatures(images)
+    dicoAux = SEAGULL.refineGlobal(images)
+    points = {}
+    for k in dicoAux.keys():
+        points[k[0]] = []
+        points[k[1]] = []
+        for j in dicoAux[k].keys() :
+            for m in dicoAux[k][j][0]:
+                points[k[0]].append(m)
+            for m in dicoAux[k][j][1]:
+                points[k[1]].append(m)
+
+    print(len(points[0]))
+    print(len(points[1]))
+    dico = {}
+    dico[0,1]=[]
+    for k in range(len(points[0])):
+        dico[0,1].append([k,k])
+
+
+
+
+
     # print("DICO",dico)
     # import cPickle as pickle
     # with open("dico{}.pck".format(datasetNumber),"wb") as f :
