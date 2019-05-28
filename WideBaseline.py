@@ -24,17 +24,18 @@ import spectral
 
 R = 50
 gamma = 10
-heightStep = 20
-widthStep = 20
+globalHeightStep = 20
+globalWidthStep = 20
 ratioGlob = 0.6
 datasetNumber = 2
 # datasetNUmber = ""
 
 # heightStep = 20
 # widthStep = 20
-lambdaC = 1e8
-lambdaB = 1e8
-lambdas = 0.1
+lambdaC = 0
+lambdaB = 1
+lambdas = 1
+lambdaD = 10
 
 #========#========#========#========#========#========#========#========#========#========#========#========
 # DEBUGGING TRIES :
@@ -91,8 +92,6 @@ def detect_and_describe(image, width = 600):
     kps = np.float32([kp.pt for kp in kpscv])
 
     return kps, descriptors, S,kpscv
-
-
 
 
 def get_features(images, width=800):
@@ -252,7 +251,7 @@ def apply_homography(homography,point):
 #OPTIMISATION CODE 
 #========#========#========#========#========#========#========#========#========#========#========#========
 
-def create_grid(images,heightStep = heightStep,widthStep = widthStep):
+def create_grid(images,heightStep = globalHeightStep,widthStep = globalWidthStep):
     nbImages,height,width = np.shape(images)[:3]
 
     V = []
@@ -268,63 +267,81 @@ def create_grid(images,heightStep = heightStep,widthStep = widthStep):
 
 
 
-def find_4_corners(point,V,width,height,shift):
-    coords = [0,0,0,0]
+def find_4_corners(point,V,width,height,shift,widthStep=globalWidthStep,heightStep=globalHeightStep):
+    # coords = [0,0,0,0]
 
-    widthAux = float(width-1)/(widthStep)
-    heightAux = float(height-1)/(heightStep)
-    # print("WIDTH",widthAux,heightAux)
-    x = int(np.floor(point[0]/widthAux))
-    y = int(np.floor(point[1]/heightAux))
-    # print("X,Y",x,y)
-    ind = 2 * (y *(widthStep+1) + x)
+    # widthAux = float(width-1)/(widthStep)
+    # heightAux = float(height-1)/(heightStep)
+    # # print("WIDTH",widthAux,heightAux)
+    # x = int(np.floor(point[0]/widthAux))
+    # y = int(np.floor(point[1]/heightAux))
+    # # print("X,Y",x,y)
+    # ind = 2 * (y *(widthStep+1) + x)
 
-        # print("Vy",V[ind+2],"y",point[1],"Vx",V[ind+3],"x",point[0])
-    assert(V[ind]<=point[1]and V[ind+1]<=point[0])
-    assert(V[ind+2]<=point[1]and V[ind+3]>=point[0])
-    assert(V[ind+2*(widthStep+1)]>=point[1]and V[ind+2*(widthStep+1)+1]<=point[0])
-    assert(V[ind+2+2*(widthStep+1)]>=point[1]and V[ind+3+2*(widthStep+1)]>=point[0])
+    #     # print("Vy",V[ind+2],"y",point[1],"Vx",V[ind+3],"x",point[0])
+    # assert(V[ind]<=point[1]and V[ind+1]<=point[0])
+    # assert(V[ind+2]<=point[1]and V[ind+3]>=point[0])
+    # assert(V[ind+2*(widthStep+1)]>=point[1]and V[ind+2*(widthStep+1)+1]<=point[0])
+    # assert(V[ind+2+2*(widthStep+1)]>=point[1]and V[ind+3+2*(widthStep+1)]>=point[0])
    
 
-    return [ind,ind+2,ind+2*(widthStep+1),ind+2+2*(widthStep+1)]
+    # return [ind,ind+2,ind+2*(widthStep+1),ind+2+2*(widthStep+1)]
+
+    """ For eWch point, find the indices of the four corners associated. 
+    NOT TESTED : NEED TO CHECK IF point IS (X,Y) or (Y,X)
+    NEED TO CHECK THE RESULT """
+
+   
+ 
+ 
+    yStep = float(height-1)/heightStep
+    xStep = float(width-1)/widthStep
+    
+    yIndex = int(np.floor((point[1])/yStep))
+    xIndex = int(np.floor((point[0])/xStep))
+
+    
+    index = 2*(yIndex*(widthStep+1)+xIndex) + shift
+
+    return [index,index+2,index+2*(widthStep+1),index+2*(widthStep+1)+2]
     
 
 
-def create_w(corner,point,V,warp):
+def create_w(corner,point,V,heightStep=globalHeightStep,widthStep=globalWidthStep):
     """ POINT + XY ou YX ???? BIGBIG PROBLEM WITH THE CORNER """
 
 
-    # Essayer avec des sparses
+    # # Essayer avec des sparses
     W = np.zeros((2,len(V)))
-    # print("LE V",V)
-    print("POINT",point)
-    print("corner",V[corner[0]],V[corner[0]+1])
-    # print("")
-    w1 = (V[corner[3]+1]-point[0])*(V[corner[3]]-point[1])
-    w2 = (point[0]-V[corner[2]+1])*(V[corner[2]]-point[1])
-    w3 = (point[0]-V[corner[0]+1])*(point[1]-V[corner[0]])
-    w4 = (V[corner[1]+1]-point[0])*(point[1]-V[corner[1]])
+    # # print("LE V",V)
+    # print("POINT",point)
+    # print("corner",V[corner[0]],V[corner[0]+1])
+
+    # # print("")
+    w4 = (V[corner[0]]-point[1])*(V[corner[0]+1]-point[0])
+    w3 = -(V[corner[1]]-point[1])*(V[corner[1]+1]-point[0])
+    w1 = (V[corner[3]]-point[1])*(V[corner[3]+1]-point[0])
+    w2 = -(V[corner[2]]-point[1])*(V[corner[2]+1]-point[0])
 
     wtot = float(w1+w2+w3+w4)
-    print(wtot)
-    # print("corner",corner)
-    print("LES W",w1,w2,w3,w4)
+    # print(wtot)
 
-    W[0,warp+corner[0]] = w1
-    W[1,warp+corner[0]+1] = w1
 
-    W[0,warp+corner[1]] = w2
-    W[1,warp+corner[1]+1] = w2
+    W[0,corner[0]] = w1
+    W[1,corner[0]+1] = w1
 
-    W[0,warp+corner[2]] = w3
-    W[1,warp+corner[2]+1] = w3
+    W[0,corner[1]] = w2
+    W[1,corner[1]+1] = w2
 
-    W[0,warp+corner[3]] = w4
-    W[1,warp+corner[3]+1] = w4
+    W[0,corner[2]] = w3
+    W[1,corner[2]+1] = w3
 
-    print("WHERE",W[np.where(W!=0)])
+    W[0,corner[3]] = w4
+    W[1,corner[3]+1] = w4
 
-    # W=W/wtot
+    # print("WHERE",W[np.where(W!=0)])
+
+    W=W/wtot
 
     return W
 
@@ -333,7 +350,7 @@ def create_w(corner,point,V,warp):
 
 
 
-def create_weight_a(images,V,dico,points):
+def create_weight_a(images,V,dico,points,init = False,heightStep=globalHeightStep,widthStep=globalWidthStep):
     """ Energy 1 """
 
 
@@ -344,25 +361,34 @@ def create_weight_a(images,V,dico,points):
     dicAux = {}
     compteur =0
     nbN = []
+    W1tot = []
+    W2tot = []
     for key in dico.keys():
         indexList = dico[key]
-        print(np.array(indexList))
+
         for indexPoint1,indexPoint2 in np.array(indexList).astype(int) :
     
-            corner1 = find_4_corners(points[key[0]][indexPoint1],V,width,height,key[0]*size)
-            corner2 = find_4_corners(points[key[1]][indexPoint2],V,width,height,key[1]*size)
+            corner1 = find_4_corners(points[key[0]][indexPoint1],V,width,height,key[0]*size,heightStep=heightStep,widthStep=widthStep)
+            corner2 = find_4_corners(points[key[1]][indexPoint2],V,width,height,key[1]*size,heightStep=heightStep,widthStep=widthStep)
+            W1 = create_w(np.array(corner1),points[key[0]][indexPoint1],V,heightStep=heightStep,widthStep=widthStep)
+            W2 = create_w(np.array(corner2),points[key[1]][indexPoint2],V,heightStep=heightStep,widthStep=widthStep)
+            W1tot.append(copy.deepcopy(W1))
+            W2tot.append(copy.deepcopy(W2))
 
-            W1 = create_w(np.array(corner1),points[key[0]][indexPoint1],V,key[0]*size)
-            W2 = create_w(np.array(corner2),points[key[1]][indexPoint2],V,key[1]*size)
+            if init :
+                if abs(points[key[0]][indexPoint1][1] - np.matmul(W1,V)[0])>1e-3 \
+                    or abs(points[key[0]][indexPoint1][0] - np.matmul(W1,V)[1])>1e-3:
+                    print("ERROR1",points[key[0]][indexPoint1],np.matmul(W1,V))
+                if abs(points[key[1]][indexPoint2][1] - np.matmul(W2,V)[0])>1e-3 \
+                    or abs(points[key[1]][indexPoint2][0] - np.matmul(W2,V)[1])>1e-3:
+                    print("ERROR2",points[key[1]][indexPoint2],np.matmul(W2,V))
+                    print("ERROR2BIS",points[key[0]][indexPoint1],np.matmul(W1,V))
             
-
-
-            Waux = csr_matrix(W1-W2)
-
-            Waux2 = csc_matrix(np.transpose(W1-W2))
+            Waux = csr_matrix(W2-W1)
+            Waux2 = csc_matrix(np.transpose(W2-W1))
             weights.append(copy.deepcopy(Waux))
             weightsTranspose.append(copy.deepcopy(Waux2))
-            print(Waux)
+           
             # Mise a jour du poid dans la cellule :
             if corner1[0] in dicAux.keys():
                 dicAux[corner1[0]].append(compteur)
@@ -375,11 +401,11 @@ def create_weight_a(images,V,dico,points):
                 nbN[index] = len(dicAux[key])
 
 
-    return weights,weightsTranspose,nbN
+    return weights,weightsTranspose,nbN,W1tot,W2tot
 
 
 
-def create_weight_r(images,V):
+def create_weight_r(images,V,init = False,heightStep=globalHeightStep,widthStep=globalWidthStep):
     """ for 2nd energy : regularisation """
     size = len(V)/len(images)
     nbImages,height,width = np.shape(images)[:3]
@@ -454,7 +480,10 @@ def create_weight_r(images,V):
                 W[0][index-2*(widthStep+1)] = -1/4.
                 W[1][index-2*(widthStep+1)+1] = -1/4.
 
-
+            if init and (np.matmul(W,V)[0]>1e-3 and np.matmul(W,V)[1]>1e-3):
+                print(index)
+                print(np.matmul(W,V))
+       
 
             Waux = csr_matrix(W)
             Waux2 = csr_matrix(np.transpose(W))
@@ -465,7 +494,7 @@ def create_weight_r(images,V):
     return weights,weightsTranspose
 
 
-def create_w_corner(V,images):
+def create_w_corner(V,images,widthStep = globalWidthStep, heightStep = globalHeightStep):
     """ For 3rd energy """
     Wcorner = []
     size = len(V)/len(images)
@@ -558,7 +587,7 @@ def orthogonalB(B):
                 baux = [-vect[1]/vect[0],1]
             else :
                 baux = [1,-vect[0]/vect[1]]
-            print(vect,baux)
+           
             Baux.append(baux/np.linalg.norm(baux))
         
         # borthoAux = copy.deepcopy(spectral.orthogonalize(b[0:3:2]))
@@ -846,25 +875,54 @@ def optimisation_mesh_v2(images,dico,points) :
 
 
 
-def optimisation_mesh(images,dico,points):
+def optimisation_mesh(images,dico,points,widthStep=globalWidthStep,heightStep=globalHeightStep):
 
     V = create_grid(images)
-    
     V2 = create_grid(images)
+    
     dicoAux = copy.deepcopy(dico) # Calcul des shapes demandent bcp de points
     for key in dicoAux.keys():
         if len(dicoAux[key])<=10 :
             del dicoAux[key]
             continue
+    
+    Wa,WaTransposed,nbN,Waux1,Waux2 = create_weight_a(images,V,dico,points) # Tableau de W_i - W_j
+    
 
-    Wa,WaTransposed,nbN = create_weight_a(images,V,dico,points) # Tableau de W_i - W_j
     Wr,WrTransposed = create_weight_r(images,V) # Tableau pour tout v de Wv - 1/Nv * Sum(Wv_i)
     s = optim_scale(images,dicoAux,points)
-    print("INIT S",s)
-    
     Wcorner = create_w_corner(V,images) # W corner (Wtl, Wtr,Wbl,Wbr) * nbImages
+    # visuGrid(V2,images,showFeature = True,Wf1 = Waux1,Wf2 = Waux2)
+    Wlineaux = []
+    for image in images :
+        
+        aux = SEAGULL.create_curve_matrices(image,V[:2*(widthStep+1)*(heightStep+1)],init=True,straightLines=True,showCurve=True,widthStep=globalWidthStep,heightStep=heightStep)
+        test = aux[0]
+        for i in range(1,len(aux[1:])):
+            test +=aux[i]
+        Wlineaux.append(test.toarray())
 
+    Wline = np.concatenate((Wlineaux[0],Wlineaux[1]),axis =1)
 
+    # Wcurveaux = []
+    # for image in images :
+        
+    #     aux = SEAGULL.create_curve_matrices(image,V[:2*(widthStep+1)*(heightStep+1)],init=True,straightLines=True,showCurve=True,widthStep=globalWidthStep,heightStep=heightStep)
+    #     test = aux[0]
+    #     for i in range(1,len(aux[1:])):
+    #         test +=aux[i]
+    #     Wcurveaux.append(test.toarray())
+
+    # Wcurve = np.concatenate((Wcurveaux[0],Wcurveaux[1]),axis =1)
+
+    # Wline +=Wcurve
+
+    # Wline = np.zeros(np.shape(Wline))
+    print(np.shape(Wlineaux))
+    print(np.shape(np.concatenate(Wlineaux,axis =1)))
+    print(np.shape(Wline))
+
+    # Wa,WaTransposed,nbN,Waux1,Waux2 = create_weight_a(images,V,dico,points,init = True,heightStep=heightStep,widthStep=widthStep) # Tableau de W_i - W_j
     Sinit = copy.deepcopy(calculate_shape(Wcorner,V))
     # print("Sinit",Sinit)
     print("V",np.shape(V))
@@ -872,7 +930,7 @@ def optimisation_mesh(images,dico,points):
     # print("NB PAR CASE ",nbN)
 
     import time
-
+    newImages = reconstructionV2(np.array(V),images,showFeature = True,Wf1 = Waux1,Wf2 = Waux2)
     def energy(V) :
  
         # Calcul A :
@@ -896,16 +954,27 @@ def optimisation_mesh(images,dico,points):
         for i in range(len(Scurrent)):
             resultC = lambdaC * np.linalg.norm(Scurrent[i]-s[i]*Sinit[i])**2
         
+        D = []
+        for w in Wline :
+            D.append(np.linalg.norm(w.dot(V))**2)
+
+        resultD = lambdaD * np.sum(D)
 
         print("Energy A {}".format(resultA))
         print("Energy B {}".format(resultB))
         print("Energy C {}".format(resultC))
-        print("Energy Total {}".format(resultA+resultB+resultC))
-        return resultA+resultB+resultC
+        print("Energy D {}".format(resultD))
+        print("Energy Total {}".format(resultA+resultB+resultC+resultD))
+        return resultA+resultB+resultC+resultD
 
 
-
-
+    # print(energy(V))
+    for i in range(1,len(V)/2,2):
+        V[i] = V[i]+50
+    # print(energy(V))
+    
+    # visuGrid(V,images,showFeature = True,Wf1 = Waux1,Wf2 = Waux2)
+    # assert(1==0)
     def gradEnergyExact(V):
         #Calcul Grad A :
         auxA = []
@@ -916,8 +985,8 @@ def optimisation_mesh(images,dico,points):
             auxauxA.append(WaTransposed[i].dot(auxA[i]))
         A = np.dot(2/nbN,auxauxA)
  
-        print("Gradient A", np.linalg.norm(A))
-        print(np.shape(A))
+        # print("Gradient A", np.linalg.norm(A))
+        # print(np.shape(A))
 
         # Calcul Grad B :
         auxB = []
@@ -931,8 +1000,8 @@ def optimisation_mesh(images,dico,points):
 
         
         B = 2 * lambdaB * np.sum(auxauxB,axis=0)
-        print("GRADIENT B",np.linalg.norm(B))
-        print(np.shape(B))
+        # print("GRADIENT B",np.linalg.norm(B))
+        # print(np.shape(B))
         # B = np.zeros(np.shape(V))
       
 
@@ -955,25 +1024,37 @@ def optimisation_mesh(images,dico,points):
             # C+= constant[1]*(np.matmul(np.transpose(Left),np.matmul(Left,V))+np.matmul(np.transpose(Right),np.matmul(Right,V)))
             C+= constant[1]*(np.matmul(np.transpose(Btot[i][2]),simpleB[i][2])+np.matmul(np.transpose(Btot[i][3]),simpleB[i][3]))
         C = lambdaC * C
+
+
+        # Calcul Grad Line :
         
-        print("C Grad VALUE",np.linalg.norm(C))
-        print(np.shape(C))
-        print("GRADFINAL",np.shape(A+B+C))
-        return B+C
+        # print("C Grad VALUE",np.linalg.norm(C))
+        
+        # print("GRADFINAL",np.shape(A+B+C))
+
+        D = np.matmul(np.transpose(Wline),np.matmul(Wline,V))
+        print("D",np.linalg.norm(D))
+        
+        D = 2 * lambdaD * D
+        
+        return A+B+C+D
 
 
     def gradEnergyApproximated(V):
             #Calcul Grad A :
         auxA = []
+        gradA = np.zeros(np.shape(V))
         for i in range(len(Wa)):
-            auxA.append(Wa[i].dot(V))
-        auxauxA = []
-        for i in range(len(WaTransposed)):
-            auxauxA.append(WaTransposed[i].dot(auxA[i]))
-        A = np.dot(2/nbN,auxauxA)
- 
-        print("Gradient A", np.linalg.norm(A))
-        print(np.shape(A))
+            w = Wa[i].toarray()
+            gradA+=np.matmul(np.transpose(w),np.matmul(w,V))
+        #     auxA.append(Wa[i].dot(V))
+        # auxauxA = []
+        # for i in range(len(WaTransposed)):
+        #     auxauxA.append(WaTransposed[i].dot(auxA[i]))
+        # A = np.sum(auxauxA)
+        A = gradA
+        print("A",np.linalg.norm(A))
+     
 
         # Calcul Grad B :
         auxB = []
@@ -987,9 +1068,11 @@ def optimisation_mesh(images,dico,points):
 
         
         B = 2 * lambdaB * np.sum(auxauxB,axis=0)
-        print("GRADIENT B",np.linalg.norm(B))
-        print(np.shape(B))
-        # B = np.zeros(np.shape(V))
+        print("B",np.linalg.norm(B))
+        
+        
+  
+  
       
 
         # Calcul Grad C :
@@ -1006,7 +1089,7 @@ def optimisation_mesh(images,dico,points):
                  * (np.matmul(np.transpose(Bnorm[i][0]),BpreSimple[i][0])+np.matmul(np.transpose(Bnorm[i][1]),BpreSimple[i][1]))
             As1+=(np.matmul(np.transpose(Bnorm[i][2]),Bsimple[i][2])+np.matmul(np.transpose(Bnorm[i][3]),Bsimple[i][3]) - 2*s[i]*Sinit[i][1])\
                  * (np.matmul(np.transpose(Bnorm[i][2]),BpreSimple[i][2])+np.matmul(np.transpose(Bnorm[i][3]),BpreSimple[i][3]))
-        # print("As1",np.shape(As1))
+        
         
 
         As2 = np.zeros(np.shape(np.matmul(np.transpose(Bnorm[i][0]),WcornerAux[i][0]-WcornerAux[i][1])))
@@ -1016,20 +1099,33 @@ def optimisation_mesh(images,dico,points):
                 + np.matmul(np.transpose(Bnorm[i][2]),Bsimple[i][2]) * np.matmul(np.transpose(Bnorm[i][2]),BpreSimple[i][2]) \
                 + np.matmul(np.transpose(Bnorm[i][3]),Bsimple[i][3]) * np.matmul(np.transpose(Bnorm[i][3]),BpreSimple[i][3])
             
-        # print("As2",np.shape(As2))
-        C = np.matmul(As1+lambdas*As2,V)
-        print("C Grad VALUE",np.linalg.norm(C))
-        print(np.shape(C))
-        print("GRADFINAL",np.shape(A+B+C))
-        return A+B+C
+        C = lambdaC * np.matmul(As1+lambdas*As2,V)
+        print("C",np.linalg.norm(C))
+        
+
+        #Calcul de gradD :
+     
+        D = np.matmul(np.transpose(Wline),np.matmul(Wline,V))
+        print("D",np.linalg.norm(D))
+
+       
+
+        
+        D = 2 * lambdaD * D
+        
+        
+
+
+        return A+B+C+D
 
     # res = copy.deepcopy(scipy.optimize.fmin_l_bfgs_b(energy,V,fprime=gradEnergyApproximated))
-    res = copy.deepcopy(scipy.optimize.fmin_l_bfgs_b(energy,V,fprime=gradEnergyApproximated,bounds=[(0,None)]*len(V),maxiter = 5000))
+    res = copy.deepcopy(scipy.optimize.fmin_l_bfgs_b(energy,V,fprime=gradEnergyExact,maxiter = 1000))
+    # res = copy.deepcopy(scipy.optimize.fmin_l_bfgs_b(energy,V,approx_grad=True))
+    # res = copy.deepcopy(scipy.optimize.fmin_l_bfgs_b(energy,V,fprime=gradEnergyApproximated,bounds=[(0,None)]*len(V),maxiter = 5000))
     # for i in range(10):
         # reconstruction(res[0],images)
         # res = copy.deepcopy(scipy.optimize.fmin_l_bfgs_b(energy,res[0],fprime=gradEnergy,bounds=[(0,None)]*len(V),maxiter = 100))
-        
-    energy(V2)
+    newImages = reconstructionV2(res[0],images,showFeature = True,Wf1 = Waux1,Wf2 = Waux2)
     return res
 
 
@@ -1041,14 +1137,31 @@ def optimisation_mesh(images,dico,points):
 #========#========#========#========#========#========#========#========#========#========#========#========
 import matplotlib.pyplot as plt
 
-def visuGrid(newGrid,images):
+def visuGrid(newGrid,images,widthStep=globalWidthStep,heightStep=globalHeightStep,showFeature = False,Wf1 = None,Wf2 = None):
     V = create_grid(images)
     size = len(newGrid)/len(images)
     ymax = np.max(newGrid[0:size:2])
     xmax = np.max(newGrid[1:size:2])
+
+    dic = {}
+    for i in range(len(images)):
+        dic[i]=[]
+    if showFeature :
+        for k in range(len(Wf1)) :
+            w1 = Wf1[k]
+            w2 = Wf2[k]
+            index = np.where(w1>0)[1]
+            image1Index = int(index[0]/(2*(widthStep+1)*(heightStep+1)))
+            index = np.where(w2>0)[1]
+            image2Index = int(index[-1]/(2*(widthStep+1)*(heightStep+1)))
+            print(image1Index,image2Index)
+        
+            dic[image1Index].append([np.matmul(w1,newGrid),np.matmul(w2,newGrid)])
+            dic[image2Index].append([np.matmul(w2,newGrid),np.matmul(w1,newGrid)])
+    print(dic[0])
+
     print(xmax,ymax)
     for i in range(len(images)) :
-    # for i in range(1) :
         grid = newGrid[i*size:(i+1)*size]
         
         xmap = grid[1::2]
@@ -1063,17 +1176,31 @@ def visuGrid(newGrid,images):
         print("?",yminLoc,xminLoc,ymaxLoc,xmaxLoc)
 
 
-        for i in range(heightStep+1):
-            plt.scatter(xmap[i*(widthStep+1):(i+1)*(widthStep+1)],ymap[i*(widthStep+1):(i+1)*(widthStep+1)],s=3)
+        for k in range(heightStep+1):
+            plt.scatter(xmap[k*(widthStep+1):(k+1)*(widthStep+1)],ymap[k*(widthStep+1):(k+1)*(widthStep+1)],s=3)
         plt.show()
 
-        for i in range(widthStep+1):
-            plt.scatter(xmap[i::widthStep+1],ymap[i::widthStep+1],s=3)
+        for k in range(widthStep+1):
+            plt.scatter(xmap[k::widthStep+1],ymap[k::widthStep+1],s=3)
         plt.show()
+
+        
+
+
+        if showFeature :
+            for j in range(0,len(dic[i]),20):
+                print(dic[i][j],i,j)
+                pt =dic[i][j][0]
+                pt2 = dic[i][j][1]
+               
+                plt.scatter(pt[1],pt[0],s=4,c='red')
+                plt.scatter(pt2[1],pt2[0],s=4,c='blue')
+                plt.scatter(xmap,ymap,s=3,c='black')
+                plt.show()
 
     return False
 
-def reconstructionV2(newGrid,images):
+def reconstructionV2(newGrid,images,widthStep=globalWidthStep,heightStep=globalHeightStep,showFeature = False,Wf1 = None,Wf2 = None):
     V = np.array(create_grid(images))
     size = len(newGrid)/len(images)
     ymax = np.max(newGrid[0:size:2])
@@ -1083,6 +1210,24 @@ def reconstructionV2(newGrid,images):
     V = np.transpose(V)
     V = np.transpose([V[1],V[0]])
 
+
+
+    if showFeature :
+
+        dic = {}
+        for i in range(len(images)):
+            dic[i]=[]
+        for k in range(len(Wf1)) :
+            w1 = Wf1[k]
+            w2 = Wf2[k]
+            index = np.where(w1>0)[1]
+            image1Index = int(index[0]/(2*(widthStep+1)*(heightStep+1)))
+            index = np.where(w2>0)[1]
+            image2Index = int(index[-1]/(2*(widthStep+1)*(heightStep+1)))
+            print(image1Index,image2Index)
+        
+            dic[image1Index].append([np.matmul(w1,newGrid),np.matmul(w2,newGrid)])
+            dic[image2Index].append([np.matmul(w2,newGrid),np.matmul(w1,newGrid)])
 
     previousCompteur = 0
     print(np.shape(V))
@@ -1095,14 +1240,14 @@ def reconstructionV2(newGrid,images):
         grid = np.transpose([grid[1],grid[0]])
        
         # print(np.shape(grid))
-        image = images[i]
+        image = images[1-i]
         rows, cols = image.shape[0], image.shape[1]
 
 
         tform = PiecewiseAffineTransform()
         tform.estimate(V, grid)
-        for k in range(len(V)):
-            print(V[k],grid[k])
+        # for k in range(len(V)):
+        #     print(V[k],grid[k])
 
         out = warp(image, tform,output_shape = (rows+300,cols+300))
         print(i,"out",out)
@@ -1110,6 +1255,19 @@ def reconstructionV2(newGrid,images):
         ax.imshow(out)
         ax.plot(tform.inverse(V)[:, 0], tform.inverse(V)[:, 1], '.b')
         plt.show()
+
+
+        if showFeature :
+            for j in range(0,len(dic[i]),20):
+                print(dic[i][j],i,j)
+                pt =dic[i][j][0]
+                pt2 = dic[i][j][1]
+               
+                plt.imshow(out)
+                plt.scatter(pt[1],pt[0],s=4,c='red')
+                plt.scatter(pt2[1],pt2[0],s=4,c='blue')
+                plt.show()
+
         newImages.append(out)
     return newImages
 # fig, ax = plt.subplots()
@@ -1197,7 +1355,8 @@ def reconstruction(newGrid,images):
 if __name__ == "__main__":
   
     # inputPath = "SimpleWideBaseline{}".format(datasetNumber)
-    inputPath = "zhang-01/shang"
+    # inputPath = "zhang-01/shang"
+    inputPath = "../zhang-08"
     # if not os.path.exists(os.path.join(inputPath,"output")):
         # os.makedirs(os.path.join(inputPath,"output"))
     imagesPath = glob.glob(os.path.join(inputPath,"*.jpg"))
@@ -1214,95 +1373,38 @@ if __name__ == "__main__":
     # dico,points = getCommonFeatures(images)
     dicoAux = SEAGULL.refineGlobal(images)
     points = {}
+    dico = {}
     for k in dicoAux.keys():
         points[k[0]] = []
         points[k[1]] = []
-        for j in dicoAux[k].keys() :
-            for m in dicoAux[k][j][0]:
-                points[k[0]].append(m)
-            for m in dicoAux[k][j][1]:
-                points[k[1]].append(m)
-
-    print(len(points[0]))
-    print(len(points[1]))
-    dico = {}
-    dico[0,1]=[]
-    for k in range(len(points[0])):
-        dico[0,1].append([k,k])
-
-
-
-
-
-    # print("DICO",dico)
-    # import cPickle as pickle
-    # with open("dico{}.pck".format(datasetNumber),"wb") as f :
-        # pickle.dump(dico,f)
-
-    # with open("dico{}.pck".format(datasetNumber),"rb") as f :
-        # dico = pickle.load(f)
-
-
-    # dico = dico1
-    # points = pts1
-    # images = np.zeros((2,9,9))
-    # V = create_grid(images)
-    # Wcorner = create_w_corner(V,images) # W corner (Wtl, Wtr,Wbl,Wbr) * nbImages
+        dico[k]=[]
+    decalage = {}
+    for i in range(len(images)):
+        decalage[i]=0
     
-    # print(np.where(Wcorner[0]))
-    # Scurrent = copy.deepcopy(calculate_shape(Wcorner,V))
-    # s = [1,1]
-    # resultC = 0
-    # for i in range(len(images)):
-    #     resultC += lambdaC * np.linalg.norm(Scurrent[i]-Scurrent[i]*s[i])**2
-    # print(resultC)
+
+    
+
+
+    for key in dicoAux.keys():
+        featuresOrigin,featuresTarget = SEAGULL.dico_to_array(dicoAux[key])
+        featuresOrigin,index = np.unique(featuresOrigin,axis =0,return_index = True)
+        featuresTarget = featuresTarget[index]
+        featuresTarget,index = np.unique(featuresTarget,axis=0,return_index = True)
+        featuresOrigin = featuresOrigin[index]
         
+        for i in range(len(featuresOrigin)):
+            points[key[0]].append(featuresOrigin[i])
+            points[key[1]].append(featuresTarget[i])
+            dico[key].append([decalage[key[0]],decalage[key[1]]])
 
-    # dico = dico2
-    # points = pts2
-    # images = np.zeros((2,2000,1000))
-
-
-    # with open("points{}.pck".format(datasetNumber),"wb") as f :
-        # pickle.dump(points,f)
-
-    # with open("points{}.pck".format(datasetNumber),"rb") as f :
-        # points = pickle.load(f)
-
-    # for k in dico[0,1] :
-        # print(points[0,1][k[0]],points[0,1][k[1]])
-  
-    # print("DICO",dico)
+            decalage[key[0]]+=1
+            decalage[key[1]]+=1
 
 
-    # V = create_grid(images)
-    # corner = create_w_corner(V,images)
-    # pre_simple = pre_simple_b(corner)
-    # Bsimple = simple_b(corner,V)
-    # B = normalizedB(corner,V)
-    # Bortho = orthogonalB(B)
-    # for i in range(len(B)):
-    #     print("=========================")
-    #     print(i)
-    #     print("presimple",pre_simple[i][0])
-    #     print("Bsimple",Bsimple[i])
-    #     print("Corner",np.where(corner[i]>0))
-    #     print("Normalized",B[i])
-    #     print("Ortho",Bortho[i])
-        # print("=========================")
-    # Wa,nbN = create_weight_a(images,V,dico,points)
-    # Wr = create_weight_r(images,V)
-    # optim_scale(images,dico,points)
-    # A = optimisation_mesh_v2(images,dico,points)
     A = optimisation_mesh(images,dico,points)
-    # with open("resultSparse{}.pck".format(datasetNumber),"wb") as f :
-        # pickle.dump(A,f)
-
-
-    # with open("resultSparse{}.pck".format(datasetNumber),"rb") as f :
-        # A = pickle.load(f)
-    # print(A[0])
+    
     visuGrid(A[0],images)
     newImages = reconstructionV2(A[0],images)
-    # print(np.shape(newImages))
+
    
